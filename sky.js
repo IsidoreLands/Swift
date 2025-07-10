@@ -1,10 +1,9 @@
 import * as THREE from 'three';
 
-let galaxyMesh; // Textured gas/rift layer
-let galaxyParticles; // Overlay stars for patch
-let backgroundParticles; // Full-sphere background
+let galaxyGroup; // Group for textured mesh and overlay particles
+let backgroundParticles; // Full-sphere background stars
 
-// Shaders for particles
+// Shaders for particles (soft circular points with alpha fade)
 const particleVertexShader = `
     precision mediump float;
     uniform mat4 modelViewMatrix;
@@ -35,7 +34,7 @@ const particleFragmentShader = `
     }
 `;
 
-// Custom shader for textured mesh with edge fade and color adjustment
+// Custom shader for textured mesh with edge fade, color adjustment, and improved blending
 const meshVertexShader = `
     varying vec2 vUv;
 
@@ -52,20 +51,25 @@ const meshFragmentShader = `
 
     void main() {
         vec4 texColor = texture2D(map, vUv);
-        // Dim and desaturate to match cool, dim background
+        // Dim and desaturate for cool, ethereal background
         float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
         texColor.rgb = mix(texColor.rgb, vec3(gray), 0.5) * 0.4;
-        // Edge fade: softer over wider margin
+        // Softer edge fade over wider margin
         float fade = min(min(vUv.x * 5.0, (1.0 - vUv.x) * 5.0), min(vUv.y * 5.0, (1.0 - vUv.y) * 5.0));
         fade = clamp(fade, 0.0, 1.0);
         gl_FragColor = texColor * opacity * fade;
     }
 `;
 
-function init(scene) {
+async function init(scene) {
     const radius = 1900;
 
-    // Background particles (unchanged)
+    // Create a group for galaxy elements to simplify rotation
+    galaxyGroup = new THREE.Group();
+    galaxyGroup.rotation.z = Math.PI / 12;
+    scene.add(galaxyGroup);
+
+    // Background particles (full sphere of dim stars)
     const bgPositions = [];
     const bgColors = [];
     const bgSizes = [];
@@ -75,14 +79,14 @@ function init(scene) {
         const polarAngle = Math.random() * Math.PI;
         const azimuthalAngle = Math.random() * 2 * Math.PI;
 
-        const X = radius * Math.sin(polarAngle) * Math.cos(azimuthalAngle);
-        const Y = radius * Math.cos(polarAngle);
-        const Z = radius * Math.sin(polarAngle) * Math.sin(azimuthalAngle);
+        const x = radius * Math.sin(polarAngle) * Math.cos(azimuthalAngle);
+        const y = radius * Math.cos(polarAngle);
+        const z = radius * Math.sin(polarAngle) * Math.sin(azimuthalAngle);
 
-        bgPositions.push(X, Y, Z);
+        bgPositions.push(x, y, z);
 
         const intensity = Math.random() * 0.5 + 0.3;
-        bgColors.push(intensity, intensity, intensity * 0.9);
+        bgColors.push(intensity, intensity, intensity * 0.9); // Slight blue tint
         bgSizes.push(Math.random() * 1.5 + 0.5);
     }
 
@@ -103,125 +107,131 @@ function init(scene) {
     backgroundParticles = new THREE.Points(bgGeometry, bgMaterial);
     scene.add(backgroundParticles);
 
-    // Milky Way textured diffuse layer
+    // Load texture and image data concurrently for efficiency
     const textureLoader = new THREE.TextureLoader();
-    textureLoader.load('eso0932a.jpg', (texture) => {
-        texture.minFilter = THREE.LinearMipMapLinearFilter;
-        texture.magFilter = THREE.LinearFilter;
-        texture.encoding = THREE.sRGBEncoding;
-
-        // Adjusted patch size for better rift coverage (wider height)
-        const phiStart = 7 * Math.PI / 4 - Math.PI / 2; // 180° width
-        const phiLength = Math.PI;
-        const thetaStart = Math.PI / 2 - (0.5 * Math.PI / 2); // Increased height ~90° total
-        const thetaLength = 0.5 * Math.PI;
-
-        const meshGeometry = new THREE.SphereGeometry(radius, 128, 64, phiStart, phiLength, thetaStart, thetaLength);
-
-        const meshMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                map: { value: texture },
-                opacity: { value: 0.6 } // Tuned for subtle gas glow
-            },
-            vertexShader: meshVertexShader,
-            fragmentShader: meshFragmentShader,
-            side: THREE.BackSide,
-            transparent: true,
-            blending: THREE.NormalBlending,
-            depthTest: true,
-            depthWrite: false
+    const texturePromise = new Promise((resolve) => {
+        textureLoader.load('eso0932a.jpg', (texture) => {
+            texture.minFilter = THREE.LinearMipMapLinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+            texture.encoding = THREE.sRGBEncoding;
+            resolve(texture);
         });
-
-        galaxyMesh = new THREE.Mesh(meshGeometry, meshMaterial);
-        galaxyMesh.rotation.z = Math.PI / 12;
-        scene.add(galaxyMesh);
     });
 
-    // Overlay particles for resolved stars in Milky Way
-    const canvas = document.getElementById('image-canvas');
+    const imagePromise = new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = 'eso0932a.jpg';
+    });
+
+    const [texture, img] = await Promise.all([texturePromise, imagePromise]);
+
+    // Milky Way textured diffuse layer (partial sphere patch)
+    const phiStart = 7 * Math.PI / 4 - Math.PI / 2; // 180° azimuthal width
+    const phiLength = Math.PI;
+    const thetaStart = Math.PI / 2 - (0.5 * Math.PI / 2); // ~90° polar height
+    const thetaLength = 0.5 * Math.PI;
+
+    const meshGeometry = new THREE.SphereGeometry(radius, 128, 64, phiStart, phiLength, thetaStart, thetaLength);
+
+    const meshMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            map: { value: texture },
+            opacity: { value: 0.6 } // Subtle gas glow
+        },
+        vertexShader: meshVertexShader,
+        fragmentShader: meshFragmentShader,
+        side: THREE.BackSide,
+        transparent: true,
+        blending: THREE.NormalBlending,
+        depthTest: true,
+        depthWrite: false
+    });
+
+    const galaxyMesh = new THREE.Mesh(meshGeometry, meshMaterial);
+    galaxyGroup.add(galaxyMesh);
+
+    // Overlay particles: Extract resolved stars from image data
+    const canvas = document.createElement('canvas'); // Create canvas dynamically
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const img = new Image();
+    const w = img.naturalWidth;
+    const h = img.naturalHeight;
+    canvas.width = w;
+    canvas.height = h;
+    ctx.drawImage(img, 0, 0, w, h);
+    const data = ctx.getImageData(0, 0, w, h).data;
 
-    img.onload = function() {
-        const w = this.naturalWidth;
-        const h = this.naturalHeight;
-        canvas.width = w;
-        canvas.height = h;
-        ctx.drawImage(this, 0, 0, w, h);
-        const data = ctx.getImageData(0, 0, w, h).data;
+    const positions = [];
+    const colors = [];
+    const sizes = [];
+    const brightnessThreshold = 120; // Threshold for brighter stars
+    const jitterStrength = 15.0; // Position jitter for depth effect
+    const subsampleStep = 3; // Subsampling for performance
 
-        const positions = [];
-        const colors = [];
-        const sizes = [];
-        const brightnessThreshold = 120; // Select brighter stars only
-        const jitterStrength = 15.0;
+    const startXRatio = 0.25;
+    const endXRatio = 0.75;
+    const startYRatio = 0.25;
+    const endYRatio = 0.75;
+    const originalAzCenter = ((startXRatio + endXRatio) / 2) * Math.PI * 2;
+    const originalPolCenter = ((startYRatio + endYRatio) / 2) * Math.PI;
 
-        const start_x_ratio = 0.25;
-        const end_x_ratio = 0.75;
-        const start_y_ratio = 0.25; // Adjusted for taller patch
-        const end_y_ratio = 0.75;
-        const original_az_center = ((start_x_ratio + end_x_ratio) / 2) * Math.PI * 2;
-        const original_pol_center = ((start_y_ratio + end_y_ratio) / 2) * Math.PI;
+    const centerAz = 7 * Math.PI / 4;
+    const centerPol = Math.PI / 2;
 
-        const center_az = 7 * Math.PI / 4;
-        const center_pol = Math.PI / 2;
+    for (let y = Math.floor(h * startYRatio); y < h * endYRatio; y += subsampleStep) {
+        for (let x = Math.floor(w * startXRatio); x < w * endXRatio; x += subsampleStep) {
+            const i = (y * w + x) * 4;
+            const r = data[i];
+            const g = data[i + 1];
+            const b = data[i + 2];
+            const brightness = 0.299 * r + 0.587 * g + 0.114 * b;
 
-        for (let y = Math.floor(h * start_y_ratio); y < h * end_y_ratio; y += 3) { // Moderate subsampling
-            for (let x = Math.floor(w * start_x_ratio); x < w * end_x_ratio; x += 3) {
-                const i = (y * w + x) * 4;
-                const brightness = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+            if (brightness > brightnessThreshold) {
+                let azimuthalAngle = (x / w) * Math.PI * 2;
+                let polarAngle = (y / h) * Math.PI;
 
-                if (brightness > brightnessThreshold) {
-                    let azimuthalAngle = (x / w) * Math.PI * 2;
-                    let polarAngle = (y / h) * Math.PI;
+                azimuthalAngle = azimuthalAngle - originalAzCenter + centerAz;
+                polarAngle = polarAngle - originalPolCenter + centerPol;
 
-                    azimuthalAngle = azimuthalAngle - original_az_center + center_az;
-                    polarAngle = polarAngle - original_pol_center + center_pol;
+                const X = radius * Math.sin(polarAngle) * Math.cos(azimuthalAngle);
+                const Y = radius * Math.cos(polarAngle);
+                const Z = radius * Math.sin(polarAngle) * Math.sin(azimuthalAngle);
 
-                    const X = radius * Math.sin(polarAngle) * Math.cos(azimuthalAngle);
-                    const Y = radius * Math.cos(polarAngle);
-                    const Z = radius * Math.sin(polarAngle) * Math.sin(azimuthalAngle);
+                // Apply jitter for natural variation
+                const jx = (Math.random() - 0.5) * jitterStrength;
+                const jy = (Math.random() - 0.5) * jitterStrength;
+                const jz = (Math.random() - 0.5) * jitterStrength;
 
-                    const jx = (Math.random() - 0.5) * jitterStrength;
-                    const jy = (Math.random() - 0.5) * jitterStrength;
-                    const jz = (Math.random() - 0.5) * jitterStrength;
-
-                    positions.push(X + jx, Y + jy, Z + jz);
-                    // Dim and cool tint to match background
-                    colors.push(data[i] / 255 * 0.7, data[i+1] / 255 * 0.7, data[i+2] / 255 * 0.8);
-                    sizes.push((brightness / 100) * (0.6 + Math.random() * 0.4));
-                }
+                positions.push(X + jx, Y + jy, Z + jz);
+                // Dim and cool tint for consistency
+                colors.push(r / 255 * 0.7, g / 255 * 0.7, b / 255 * 0.8);
+                sizes.push((brightness / 100) * (0.6 + Math.random() * 0.4));
             }
         }
+    }
 
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
 
-        const material = new THREE.RawShaderMaterial({
-            vertexShader: particleVertexShader,
-            fragmentShader: particleFragmentShader,
-            blending: THREE.AdditiveBlending,
-            transparent: true,
-            depthTest: true,
-            depthWrite: false
-        });
+    const material = new THREE.RawShaderMaterial({
+        vertexShader: particleVertexShader,
+        fragmentShader: particleFragmentShader,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthTest: true,
+        depthWrite: false
+    });
 
-        galaxyParticles = new THREE.Points(geometry, material);
-        galaxyParticles.rotation.z = Math.PI / 12;
-        scene.add(galaxyParticles);
-    };
-
-    img.src = 'eso0932a.jpg';
+    const galaxyParticles = new THREE.Points(geometry, material);
+    galaxyGroup.add(galaxyParticles);
 }
 
 function updateSky() {
-    if (galaxyMesh) {
-        galaxyMesh.rotation.y -= 0.001;
-    }
-    if (galaxyParticles) {
-        galaxyParticles.rotation.y -= 0.001;
+    if (galaxyGroup) {
+        galaxyGroup.rotation.y -= 0.001; // Rotate group for efficiency
     }
     if (backgroundParticles) {
         backgroundParticles.rotation.y -= 0.001;
