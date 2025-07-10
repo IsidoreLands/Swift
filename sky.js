@@ -9,19 +9,20 @@ function createSky(scene) {
         t.wrapT = THREE.RepeatWrapping;
     });
 
-    // Increased plane size significantly to make stars appear smaller
     const skyGeo = new THREE.PlaneGeometry(12000, 3000);
-    const skyMat = new THREE.MeshBasicMaterial({ map: skyTexture });
+    // Add the 'color' property to dim the texture, reducing noise.
+    const skyMat = new THREE.MeshBasicMaterial({ 
+        map: skyTexture,
+        color: 0x999999 
+    });
     skyPlane = new THREE.Mesh(skyGeo, skyMat);
     
-    // Adjusted Y position to move the texture's center up
     skyPlane.position.set(0, 700, -4000); 
     scene.add(skyPlane);
 }
 
 function updateSky() {
     if (skyPlane) {
-        // This creates the slow, continuous scrolling effect
         skyPlane.material.map.offset.x -= 0.00005;
     }
 }
