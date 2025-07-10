@@ -1,5 +1,6 @@
 import * as sceneManager from './sceneManager.js';
 import * as sky from './sky.js';
+import * as rocket from './rocket.js';
 
 let scene, camera, renderer;
 
@@ -13,6 +14,7 @@ function init() {
 
     // Create the visual elements
     sky.createSky(scene);
+    rocket.createPlaceholders(scene);
 
     // Add event listener for window resizing
     window.addEventListener('resize', sceneManager.onWindowResize);
