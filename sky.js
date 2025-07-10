@@ -55,7 +55,7 @@ const meshFragmentShader = `
         float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
         texColor.rgb = mix(texColor.rgb, vec3(gray), 0.5) * 0.4;
         // Softer edge fade over wider margin
-        float fade = min(min(vUv.x * 5.0, (1.0 - vUv.x) * 5.0), min(vUv.y * 5.0, (1.0 - vUv.y) * 5.0));
+        float fade = min(min(vUv.x * 5.0, (1.0 - vUv.x) * 5.0), min(vUy * 5.0, (1.0 - vUy) * 5.0));
         fade = clamp(fade, 0.0, 1.0);
         gl_FragColor = texColor * opacity * fade;
     }
@@ -198,13 +198,11 @@ async function init(scene) {
                 const Y = radius * Math.cos(polarAngle);
                 const Z = radius * Math.sin(polarAngle) * Math.sin(azimuthalAngle);
 
-                // Apply jitter for natural variation
                 const jx = (Math.random() - 0.5) * jitterStrength;
                 const jy = (Math.random() - 0.5) * jitterStrength;
                 const jz = (Math.random() - 0.5) * jitterStrength;
 
                 positions.push(X + jx, Y + jy, Z + jz);
-                // Dim and cool tint for consistency
                 colors.push(r / 255 * 0.7, g / 255 * 0.7, b / 255 * 0.8);
                 sizes.push((brightness / 100) * (0.6 + Math.random() * 0.4));
             }
@@ -230,11 +228,12 @@ async function init(scene) {
 }
 
 function updateSky() {
+    // Reverted to subtle production speed
     if (galaxyGroup) {
-        galaxyGroup.rotation.y -= 0.001; // Rotate group for efficiency
+        galaxyGroup.rotation.y -= 0.0001; 
     }
     if (backgroundParticles) {
-        backgroundParticles.rotation.y -= 0.001;
+        backgroundParticles.rotation.y -= 0.0001;
     }
 }
 
