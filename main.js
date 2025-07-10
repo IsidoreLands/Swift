@@ -1,8 +1,10 @@
+import * as THREE from 'three';
 import * as sceneManager from './sceneManager.js';
 import * as sky from './sky.js';
 import * as rocket from './rocket.js';
+import * as fireworks from './fireworks.js';
 
-let scene, camera, renderer;
+let scene, camera, renderer, clock;
 
 // Initialize the core components
 function init() {
@@ -11,10 +13,14 @@ function init() {
     scene = components.scene;
     camera = components.camera;
     renderer = components.renderer;
+    
+    // Create a clock for time-based animations
+    clock = new THREE.Clock();
 
     // Create the visual elements
     sky.createSky(scene);
     rocket.createPlaceholders(scene);
+    fireworks.init(scene, clock);
 
     // Add event listener for window resizing
     window.addEventListener('resize', sceneManager.onWindowResize);
@@ -29,6 +35,7 @@ function animate() {
 
     // Update animated components
     sky.updateSky();
+    fireworks.update();
 
     // Render the scene with the camera
     renderer.render(scene, camera);
