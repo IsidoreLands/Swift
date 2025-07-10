@@ -6,6 +6,7 @@ import * as fireworks from './fireworks.js';
 import * as uiController from './uiController.js';
 
 let scene, camera, renderer, clock;
+const cameraLookAtTarget = new THREE.Vector3(0, 10, 0);
 
 // Initialize the core components
 function init() {
@@ -16,12 +17,9 @@ function init() {
     
     clock = new THREE.Clock();
 
-    // Create the visual elements
-    sky.init(scene); // Corrected function call
+    sky.init(scene);
     rocket.createPlaceholders(scene);
     fireworks.init(scene, clock);
-
-    // Initialize the UI controls
     uiController.init();
 
     window.addEventListener('resize', sceneManager.onWindowResize);
@@ -33,12 +31,19 @@ function init() {
 function animate() {
     requestAnimationFrame(animate);
 
-    // Update animated components
+    const rocketState = rocket.getRocketState();
+
     sky.updateSky();
     fireworks.update();
     rocket.update(); 
 
-    // Render the scene with the camera
+    // If the rocket is launching, make the camera follow it
+    if (rocketState.isLaunching && rocketState.model) {
+        // Smoothly interpolate the camera's look-at target towards the rocket
+        cameraLookAtTarget.lerp(rocketState.model.position, 0.05);
+        camera.lookAt(cameraLookAtTarget);
+    }
+
     renderer.render(scene, camera);
 }
 
