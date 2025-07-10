@@ -1,12 +1,10 @@
 import * as THREE from 'three';
 
 let rocketPlaceholder;
-let afterburnerSystem;
+let afterburnerSystem, smokeSystem;
 let isLaunching = false;
 
-// Creates the static placeholder models
 function createPlaceholders(scene) {
-    // Grassy Hill
     const hillGeo = new THREE.CircleGeometry(200, 64);
     const hillMat = new THREE.MeshBasicMaterial({ color: 0x004d00 });
     const hill = new THREE.Mesh(hillGeo, hillMat);
@@ -14,18 +12,15 @@ function createPlaceholders(scene) {
     hill.position.y = -5;
     scene.add(hill);
 
-    // --- Rocket Group ---
     rocketPlaceholder = new THREE.Group();
     rocketPlaceholder.position.set(0, 10, 0);
     scene.add(rocketPlaceholder);
 
-    // Rocket Body
     const bodyGeo = new THREE.CylinderGeometry(2, 2, 15, 32);
     const bodyMat = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness: 0.5, roughness: 0.2 });
     const body = new THREE.Mesh(bodyGeo, bodyMat);
     rocketPlaceholder.add(body);
     
-    // Rocket Cone
     const coneGeo = new THREE.ConeGeometry(2, 5, 32);
     const coneMat = new THREE.MeshStandardMaterial({ color: 0xb22222, metalness: 0.5, roughness: 0.2 });
     const cone = new THREE.Mesh(coneGeo, coneMat);
@@ -33,71 +28,102 @@ function createPlaceholders(scene) {
     rocketPlaceholder.add(cone);
 
     createAfterburner();
+    createSmoke();
 }
 
-// Sets up the afterburner particle system
 function createAfterburner() {
     const particleCount = 2000;
     const positions = new Float32Array(particleCount * 3);
     const velocities = new Float32Array(particleCount * 3);
-
     for (let i = 0; i < particleCount; i++) {
-        const i3 = i * 3;
-        positions[i3] = (Math.random() - 0.5) * 0.5; // Emerge from a small area
-        positions[i3 + 1] = (Math.random() * -5) - 7.5; // Start at rocket base
-        positions[i3 + 2] = (Math.random() - 0.5) * 0.5;
-
-        velocities[i3] = (Math.random() - 0.5) * 0.1;
-        velocities[i3 + 1] = -5 - Math.random(); // Strong downward velocity
-        velocities[i3 + 2] = (Math.random() - 0.5) * 0.1;
+        positions[i * 3] = (Math.random() - 0.5) * 0.5;
+        positions[i * 3 + 1] = (Math.random() * -5) - 7.5;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+        velocities[i * 3] = (Math.random() - 0.5) * 0.1;
+        velocities[i * 3 + 1] = -5 - Math.random();
+        velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
     }
-
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
-
-    const textureLoader = new THREE.TextureLoader();
-    const particleTexture = textureLoader.load('flame-png-transparent-4.png');
-
     const material = new THREE.PointsMaterial({
         size: 2,
-        map: particleTexture,
+        map: new THREE.TextureLoader().load('flame-png-transparent-4.png'),
         blending: THREE.AdditiveBlending,
         depthWrite: false,
         transparent: true,
-        color: 0xffa500 // Orange tint
+        color: 0xffa500
     });
-
     afterburnerSystem = new THREE.Points(geometry, material);
-    afterburnerSystem.visible = false; // Initially hidden
+    afterburnerSystem.visible = false;
     rocketPlaceholder.add(afterburnerSystem);
 }
 
-// Starts the launch sequence
+function createSmoke() {
+    const particleCount = 500;
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+        positions[i * 3] = (Math.random() - 0.5) * 2;
+        positions[i * 3 + 1] = -8.5;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 2;
+        velocities[i * 3] = (Math.random() - 0.5) * 0.5;
+        velocities[i * 3 + 1] = Math.random() * 0.5;
+        velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+    const material = new THREE.PointsMaterial({
+        size: 10,
+        map: new THREE.TextureLoader().load('clouds.png'),
+        blending: THREE.NormalBlending,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.3
+    });
+    smokeSystem = new THREE.Points(geometry, material);
+    smokeSystem.visible = false;
+    rocketPlaceholder.add(smokeSystem);
+}
+
 function launch() {
     if (!isLaunching) {
         isLaunching = true;
         afterburnerSystem.visible = true;
+        smokeSystem.visible = true;
     }
 }
 
-// Animates the particles on each frame
 function update() {
-    if (isLaunching && afterburnerSystem) {
-        const positions = afterburnerSystem.geometry.attributes.position.array;
-        const velocities = afterburnerSystem.geometry.attributes.velocity.array;
-
-        for (let i = 0; i < positions.length; i += 3) {
-            positions[i + 1] += velocities[i + 1] * 0.05; // Move particles down
-
-            // Reset particle when it goes too far
-            if (positions[i + 1] < -20) {
-                positions[i] = (Math.random() - 0.5) * 0.5;
-                positions[i + 1] = -7.5;
-                positions[i + 2] = (Math.random() - 0.5) * 0.5;
+    if (isLaunching) {
+        // Animate Afterburner
+        const afterburnerPos = afterburnerSystem.geometry.attributes.position.array;
+        const afterburnerVel = afterburnerSystem.geometry.attributes.velocity.array;
+        for (let i = 0; i < afterburnerPos.length; i += 3) {
+            afterburnerPos[i + 1] += afterburnerVel[i + 1] * 0.05;
+            if (afterburnerPos[i + 1] < -20) {
+                afterburnerPos[i] = (Math.random() - 0.5) * 0.5;
+                afterburnerPos[i + 1] = -7.5;
+                afterburnerPos[i + 2] = (Math.random() - 0.5) * 0.5;
             }
         }
         afterburnerSystem.geometry.attributes.position.needsUpdate = true;
+
+        // Animate Smoke
+        const smokePos = smokeSystem.geometry.attributes.position.array;
+        const smokeVel = smokeSystem.geometry.attributes.velocity.array;
+        for (let i = 0; i < smokePos.length; i += 3) {
+            smokePos[i] += smokeVel[i] * 0.1;
+            smokePos[i + 1] += smokeVel[i + 1] * 0.1;
+            smokePos[i + 2] += smokeVel[i + 2] * 0.1;
+            if (smokePos[i + 1] > 0 || Math.abs(smokePos[i]) > 15) {
+                smokePos[i] = (Math.random() - 0.5) * 2;
+                smokePos[i + 1] = -8.5;
+                smokePos[i + 2] = (Math.random() - 0.5) * 2;
+            }
+        }
+        smokeSystem.geometry.attributes.position.needsUpdate = true;
     }
 }
 
