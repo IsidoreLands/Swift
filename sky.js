@@ -48,7 +48,8 @@ function init(scene) {
         const positions = [];
         const colors = [];
         const sizes = [];
-        const brightnessThreshold = 20;
+        // Lowered threshold to include many more stars
+        const brightnessThreshold = 5; 
 
         for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
@@ -71,7 +72,7 @@ function init(scene) {
 
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); // This provides the 'color' attribute
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
         
         const material = new THREE.ShaderMaterial({
