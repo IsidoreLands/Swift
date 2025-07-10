@@ -10,10 +10,11 @@ function createSky(scene) {
     });
 
     const skyGeo = new THREE.PlaneGeometry(12000, 3000);
-    // Add the 'color' property to dim the texture, reducing noise.
+    // Switched to AdditiveBlending to hide noise and make stars glow.
     const skyMat = new THREE.MeshBasicMaterial({ 
         map: skyTexture,
-        color: 0x999999 
+        blending: THREE.AdditiveBlending,
+        transparent: true
     });
     skyPlane = new THREE.Mesh(skyGeo, skyMat);
     
