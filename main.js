@@ -9,13 +9,11 @@ let scene, camera, renderer, clock;
 
 // Initialize the core components
 function init() {
-    // Get the scene, camera, and renderer from the sceneManager
     const components = sceneManager.init();
     scene = components.scene;
     camera = components.camera;
     renderer = components.renderer;
     
-    // Create a clock for time-based animations
     clock = new THREE.Clock();
 
     // Create the visual elements
@@ -26,10 +24,8 @@ function init() {
     // Initialize the UI controls
     uiController.init();
 
-    // Add event listener for window resizing
     window.addEventListener('resize', sceneManager.onWindowResize);
 
-    // Start the animation loop
     animate();
 }
 
@@ -40,6 +36,7 @@ function animate() {
     // Update animated components
     sky.updateSky();
     fireworks.update();
+    rocket.update(); // Add rocket update to the loop
 
     // Render the scene with the camera
     renderer.render(scene, camera);
