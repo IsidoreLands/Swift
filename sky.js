@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-let skybox, galaxyParticles;
+let galaxyParticles;
 
 // --- Shaders for Particle System ---
 const vertexShader = `
@@ -32,16 +32,7 @@ const fragmentShader = `
 
 
 function init(scene) {
-    // 1. The main spherical skybox using the 8k starfield
-    const skyboxGeo = new THREE.SphereGeometry(2000, 64, 32);
-    const skyboxMat = new THREE.MeshBasicMaterial({
-        map: new THREE.TextureLoader().load('8k_stars_milky_way.jpg'),
-        side: THREE.BackSide
-    });
-    skybox = new THREE.Mesh(skyboxGeo, skyboxMat);
-    scene.add(skybox);
-
-    // 2. The detailed Milky Way particle layer
+    // The detailed Milky Way particle layer
     const canvas = document.getElementById('image-canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const img = new Image();
@@ -59,7 +50,7 @@ function init(scene) {
         const sizes = [];
         const brightnessThreshold = 15;
         const radius = 1900;
-        const jitterStrength = 2.5; // How much to break up the grid pattern
+        const jitterStrength = 2.5;
 
         for (let i = 0; i < data.length; i += 4) {
             const brightness = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
@@ -75,7 +66,6 @@ function init(scene) {
                 const Y = radius * Math.cos(polarAngle);
                 const Z = radius * Math.sin(polarAngle) * Math.sin(azimuthalAngle);
                 
-                // Add random jitter to break up the grid
                 const jx = (Math.random() - 0.5) * jitterStrength;
                 const jy = (Math.random() - 0.5) * jitterStrength;
                 const jz = (Math.random() - 0.5) * jitterStrength;
@@ -107,9 +97,6 @@ function init(scene) {
 }
 
 function updateSky() {
-    if (skybox) {
-        skybox.rotation.y -= 0.0001;
-    }
     if (galaxyParticles) {
         galaxyParticles.rotation.y -= 0.00011; 
     }
