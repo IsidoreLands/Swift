@@ -3,6 +3,8 @@ import * as THREE from 'three';
 let rocketPlaceholder;
 let afterburnerSystem, smokeSystem;
 let isLaunching = false;
+let launchVelocity = 0;
+const launchAcceleration = 0.05;
 
 function createPlaceholders(scene) {
     const hillGeo = new THREE.CircleGeometry(200, 64);
@@ -97,6 +99,10 @@ function launch() {
 
 function update() {
     if (isLaunching) {
+        // Animate Rocket Position
+        launchVelocity += launchAcceleration;
+        rocketPlaceholder.position.y += launchVelocity;
+
         // Animate Afterburner
         const afterburnerPos = afterburnerSystem.geometry.attributes.position.array;
         const afterburnerVel = afterburnerSystem.geometry.attributes.velocity.array;
