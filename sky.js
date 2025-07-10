@@ -54,8 +54,8 @@ const meshFragmentShader = `
         // Dim and desaturate for cool, ethereal background
         float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
         texColor.rgb = mix(texColor.rgb, vec3(gray), 0.5) * 0.4;
-        // Softer edge fade over wider margin
-        float fade = min(min(vUv.x * 5.0, (1.0 - vUv.x) * 5.0), min(vUy * 5.0, (1.0 - vUy) * 5.0));
+        // Softer edge fade over wider margin (TYPO CORRECTED HERE)
+        float fade = min(min(vUv.x * 5.0, (1.0 - vUv.x) * 5.0), min(vUv.y * 5.0, (1.0 - vUv.y) * 5.0));
         fade = clamp(fade, 0.0, 1.0);
         gl_FragColor = texColor * opacity * fade;
     }
