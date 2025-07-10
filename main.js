@@ -3,6 +3,7 @@ import * as sceneManager from './sceneManager.js';
 import * as sky from './sky.js';
 import * as rocket from './rocket.js';
 import * as fireworks from './fireworks.js';
+import * as uiController from './uiController.js';
 
 let scene, camera, renderer, clock;
 
@@ -21,6 +22,9 @@ function init() {
     sky.createSky(scene);
     rocket.createPlaceholders(scene);
     fireworks.init(scene, clock);
+
+    // Initialize the UI controls
+    uiController.init();
 
     // Add event listener for window resizing
     window.addEventListener('resize', sceneManager.onWindowResize);
