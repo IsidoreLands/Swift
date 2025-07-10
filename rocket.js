@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 
 let rocketPlaceholder;
 let afterburnerSystem, smokeSystem;
@@ -6,34 +7,35 @@ let isLaunching = false;
 let launchVelocity = 0;
 const launchAcceleration = 0.05;
 
-// --- Toon Shaders for the Rocket ---
+// --- Toon Shader for the Rocket ---
 const toonVertexShader = `
     varying vec3 vNormal;
-    varying vec3 vViewPosition;
+    varying vec2 vUv;
 
     void main() {
         vNormal = normalize(normalMatrix * normal);
-        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        vViewPosition = -mvPosition.xyz;
-        gl_Position = projectionMatrix * mvPosition;
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
 `;
 
 const toonFragmentShader = `
-    uniform vec3 uColor;
+    uniform sampler2D uTexture;
     uniform vec3 uLightDirection;
     varying vec3 vNormal;
+    varying vec2 vUv;
     
     void main() {
-        float intensity = dot(vNormal, uLightDirection);
+        float intensity = max(0.0, dot(vNormal, uLightDirection));
+        vec3 materialColor = texture2D(uTexture, vUv).rgb;
         vec3 finalColor;
 
-        if (intensity > 0.8) {
-            finalColor = uColor * 1.5; // Highlight
-        } else if (intensity > 0.4) {
-            finalColor = uColor; // Base color
+        if (intensity > 0.85) {
+            finalColor = materialColor * 1.4; // Highlight
+        } else if (intensity > 0.5) {
+            finalColor = materialColor; // Base color
         } else {
-            finalColor = uColor * 0.5; // Shadow
+            finalColor = materialColor * 0.6; // Shadow
         }
         
         gl_FragColor = vec4(finalColor, 1.0);
@@ -53,35 +55,38 @@ function createPlaceholders(scene) {
     rocketPlaceholder.position.set(0, 10, 0);
     scene.add(rocketPlaceholder);
 
-    // Uniforms for the shader material
+    // --- Load the GLB Model ---
+    const loader = new GLTFLoader();
+    const textureLoader = new THREE.TextureLoader();
+    const painterlyTexture = textureLoader.load('Rocket_Dreams_0710234359_texture.jpg');
+    
     const lightDirection = new THREE.Vector3(0.5, 0.5, 1).normalize();
-    
-    const bodyMat = new THREE.ShaderMaterial({
+
+    const customToonMaterial = new THREE.ShaderMaterial({
         uniforms: {
-            uColor: { value: new THREE.Color(0xADD8E6) }, // Light Blue
+            uTexture: { value: painterlyTexture },
             uLightDirection: { value: lightDirection }
         },
         vertexShader: toonVertexShader,
-        fragmentShader: toonFragmentShader
-    });
-    
-    const coneMat = new THREE.ShaderMaterial({
-        uniforms: {
-            uColor: { value: new THREE.Color(0xFF4500) }, // Orange-Red
-            uLightDirection: { value: lightDirection }
-        },
-        vertexShader: toonVertexShader,
-        fragmentShader: toonFragmentShader
+        fragmentShader: toonFragmentShader,
     });
 
-    const bodyGeo = new THREE.CylinderGeometry(2, 2, 15, 32);
-    const body = new THREE.Mesh(bodyGeo, bodyMat);
-    rocketPlaceholder.add(body);
-    
-    const coneGeo = new THREE.ConeGeometry(2, 5, 32);
-    const cone = new THREE.Mesh(coneGeo, coneMat);
-    cone.position.y = 10;
-    rocketPlaceholder.add(cone);
+    loader.load('swiftrocket.glb', (gltf) => {
+        const model = gltf.scene;
+        
+        // Apply our custom material to all parts of the loaded model
+        model.traverse((child) => {
+            if (child.isMesh) {
+                child.material = customToonMaterial;
+            }
+        });
+
+        // Scale and position the model within the group
+        model.scale.set(5, 5, 5);
+        model.position.y = -7.5;
+        rocketPlaceholder.add(model);
+    });
+
 
     createAfterburner();
     createSmoke();
@@ -125,7 +130,6 @@ function createSmoke() {
         positions[i * 3 + 2] = (Math.random() - 0.5) * 2;
         velocities[i * 3] = (Math.random() - 0.5) * 0.5;
         velocities[i * 3 + 1] = Math.random() * 0.5;
-        // Corrected typo on this line
         velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
     }
     const geometry = new THREE.BufferGeometry();
