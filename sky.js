@@ -1,145 +1,40 @@
 import * as THREE from 'three';
 
-let skyDome; // Textured dome for gas/rifts
-let starParticles; // Bright resolved stars
-let backgroundParticles; // Procedural faint stars with twinkling
+let galaxyParticles;
 
-// Particle shader with twinkling (noise-based animation)
-const particleVertexShader = `
+// --- Shaders for Particle System ---
+const vertexShader = `
+    precision mediump float;
     uniform mat4 modelViewMatrix;
     uniform mat4 projectionMatrix;
-    uniform float time;
     attribute vec3 position;
     attribute vec3 color;
     attribute float size;
     varying vec3 vColor;
 
-    // Simple noise for twinkling
-    float noise(vec3 p) {
-        return sin(p.x * 10.0 + time) * sin(p.y * 10.0 + time) * sin(p.z * 10.0 + time);
-    }
-
     void main() {
-        vColor = color * (1.0 + 0.1 * noise(position)); // Subtle intensity variation
+        vColor = color;
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = size * (1.0 + 0.05 * noise(position)); // Slight size pulse
+        gl_PointSize = size * (1000.0 / -mvPosition.z);
         gl_Position = projectionMatrix * mvPosition;
     }
 `;
 
-const particleFragmentShader = `
+const fragmentShader = `
+    precision mediump float;
     varying vec3 vColor;
 
     void main() {
         vec2 coord = gl_PointCoord - vec2(0.5, 0.5);
         float dist = length(coord);
         if (dist > 0.5) discard;
-        float alpha = 1.0 - smoothstep(0.4, 0.5, dist); // Soft edges
+        float alpha = 1.0 - smoothstep(0.4, 0.5, dist);
         gl_FragColor = vec4(vColor, alpha);
     }
 `;
 
-// Dome shader for diffuse gas with glow/fade
-const domeVertexShader = `
-    varying vec2 vUv;
-    void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-`;
-
-const domeFragmentShader = `
-    uniform sampler2D map;
-    uniform float opacity;
-    uniform float time;
-    varying vec2 vUv;
-
-    void main() {
-        vec4 texColor = texture2D(map, vUv);
-        // Dim/desaturate for natural blend
-        float gray = dot(texColor.rgb, vec3(0.299, 0.587, 0.114));
-        texColor.rgb = mix(texColor.rgb, vec3(gray * 0.8, gray * 0.8, gray), 0.6);
-        // Subtle glow pulse
-        texColor.rgb *= 0.7 + 0.05 * sin(time + vUv.x * 10.0 + vUv.y * 5.0);
-        // Edge fade
-        float fade = smoothstep(0.0, 0.2, vUv.y) * smoothstep(1.0, 0.8, vUv.y) * smoothstep(0.0, 0.1, vUv.x) * smoothstep(1.0, 0.9, vUv.x);
-        gl_FragColor = texColor * opacity * fade;
-    }
-`;
-
 function init(scene) {
-    const radius = 5000; // Larger for less curvature in first-person
-    const clock = new THREE.Clock(); // For time in shaders
-
-    // Procedural background faint stars (low density, twinkling)
-    const bgPositions = [];
-    const bgColors = [];
-    const bgSizes = [];
-    const numBgStars = 8000; // Low for performance
-
-    for (let i = 0; i < numBgStars; i++) {
-        const theta = Math.acos(2 * Math.random() - 1); // Uniform distribution
-        const phi = Math.random() * 2 * Math.PI;
-
-        const x = radius * Math.sin(theta) * Math.cos(phi);
-        const y = radius * Math.cos(theta);
-        const z = radius * Math.sin(theta) * Math.sin(phi);
-
-        bgPositions.push(x, y, z);
-        const intensity = Math.random() * 0.3 + 0.2;
-        bgColors.push(intensity, intensity, intensity * 0.95);
-        bgSizes.push(Math.random() * 1.0 + 0.5);
-    }
-
-    const bgGeometry = new THREE.BufferGeometry();
-    bgGeometry.setAttribute('position', new THREE.Float32BufferAttribute(bgPositions, 3));
-    bgGeometry.setAttribute('color', new THREE.Float32BufferAttribute(bgColors, 3));
-    bgGeometry.setAttribute('size', new THREE.Float32BufferAttribute(bgSizes, 1));
-
-    const bgMaterial = new THREE.RawShaderMaterial({
-        uniforms: { time: { value: 0 } },
-        vertexShader: particleVertexShader,
-        fragmentShader: particleFragmentShader,
-        blending: THREE.AdditiveBlending,
-        transparent: true,
-        depthTest: false, // Background layer
-        depthWrite: false
-    });
-
-    backgroundParticles = new THREE.Points(bgGeometry, bgMaterial);
-    scene.add(backgroundParticles);
-
-    // Textured dome for Milky Way gas/rifts (half-sphere, northwest focus)
-    const textureLoader = new THREE.TextureLoader();
-    textureLoader.load('eso0932a.jpg', (texture) => {
-        texture.minFilter = THREE.LinearMipMapLinearFilter; // Anti-moiré
-        texture.magFilter = THREE.LinearFilter;
-        texture.encoding = THREE.sRGBEncoding;
-
-        // Dome geometry: half-sphere, positioned northwest
-        const domeGeometry = new THREE.SphereGeometry(radius, 128, 64, Math.PI * 1.25, Math.PI / 1.5, 0, Math.PI / 2); // Phi start/length for northwest, theta for hemisphere
-
-        const domeMaterial = new THREE.ShaderMaterial({
-            uniforms: {
-                map: { value: texture },
-                opacity: { value: 0.5 }, // Subtle glow
-                time: { value: 0 }
-            },
-            vertexShader: domeVertexShader,
-            fragmentShader: domeFragmentShader,
-            side: THREE.BackSide,
-            transparent: true,
-            blending: THREE.AdditiveBlending,
-            depthTest: false,
-            depthWrite: false
-        });
-
-        skyDome = new THREE.Mesh(domeGeometry, domeMaterial);
-        skyDome.position.y = -10; // Slight offset for hill-base view
-        scene.add(skyDome);
-    });
-
-    // Bright star particles from image (low density)
+    // The detailed Milky Way particle layer
     const canvas = document.getElementById('image-canvas');
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     const img = new Image();
@@ -155,26 +50,31 @@ function init(scene) {
         const positions = [];
         const colors = [];
         const sizes = [];
-        const brightThreshold = 150; // Only bright stars
-        const subsample = 4; // Reduce density
+        const brightnessThreshold = 15;
+        const radius = 1900;
+        const jitterStrength = 2.5;
 
-        for (let y = 0; y < h; y += subsample) {
-            for (let x = 0; x < w; x += subsample) {
-                const i = (y * w + x) * 4;
-                const brightness = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
+        for (let i = 0; i < data.length; i += 4) {
+            const brightness = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
 
-                if (brightness > brightThreshold) {
-                    const theta = (y / h) * Math.PI / 2; // Hemisphere mapping
-                    const phi = (x / w) * Math.PI * 2 + Math.PI * 1.25; // Northwest offset
+            if (brightness > brightnessThreshold) {
+                const x = (i / 4) % w;
+                const y = Math.floor((i / 4) / w);
 
-                    const X = radius * Math.sin(theta) * Math.cos(phi);
-                    const Y = radius * Math.cos(theta);
-                    const Z = radius * Math.sin(theta) * Math.sin(phi);
+                const azimuthalAngle = (x / w) * Math.PI * 2;
+                const polarAngle = (y / h) * Math.PI;
 
-                    positions.push(X, Y, Z);
-                    colors.push(data[i]/255 * 0.8, data[i+1]/255 * 0.8, data[i+2]/255);
-                    sizes.push(brightness / 100 + Math.random());
-                }
+                const X = radius * Math.sin(polarAngle) * Math.cos(azimuthalAngle);
+                const Y = radius * Math.cos(polarAngle);
+                const Z = radius * Math.sin(polarAngle) * Math.sin(azimuthalAngle);
+                
+                const jx = (Math.random() - 0.5) * jitterStrength;
+                const jy = (Math.random() - 0.5) * jitterStrength;
+                const jz = (Math.random() - 0.5) * jitterStrength;
+
+                positions.push(X + jx, Y + jy, Z + jz);
+                colors.push(data[i] / 255, data[i+1] / 255, data[i+2] / 255);
+                sizes.push(brightness / 100);
             }
         }
 
@@ -182,38 +82,25 @@ function init(scene) {
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
         geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
         geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
-
+        
         const material = new THREE.RawShaderMaterial({
-            uniforms: { time: { value: 0 } },
-            vertexShader: particleVertexShader,
-            fragmentShader: particleFragmentShader,
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
             blending: THREE.AdditiveBlending,
-            transparent: true,
-            depthTest: false,
-            depthWrite: false
+            transparent: true
         });
 
-        starParticles = new THREE.Points(geometry, material);
-        scene.add(starParticles);
+        galaxyParticles = new THREE.Points(geometry, material);
+        galaxyParticles.rotation.z = Math.PI / 12;
+        scene.add(galaxyParticles);
     };
 
     img.src = 'eso0932a.jpg';
 }
 
 function updateSky() {
-    const time = performance.now() * 0.001; // For twinkling
-
-    if (backgroundParticles) {
-        backgroundParticles.material.uniforms.time.value = time;
-        backgroundParticles.rotation.y -= 0.00005; // Very slow rotation
-    }
-    if (skyDome) {
-        skyDome.material.uniforms.time.value = time;
-        skyDome.rotation.y -= 0.00005;
-    }
-    if (starParticles) {
-        starParticles.material.uniforms.time.value = time;
-        starParticles.rotation.y -= 0.00005;
+    if (galaxyParticles) {
+        galaxyParticles.rotation.y -= 0.00011; 
     }
 }
 
