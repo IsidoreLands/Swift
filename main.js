@@ -17,7 +17,7 @@ function init() {
     clock = new THREE.Clock();
 
     // Create the visual elements
-    sky.createSky(scene);
+    sky.init(scene); // Corrected function call
     rocket.createPlaceholders(scene);
     fireworks.init(scene, clock);
 
@@ -36,7 +36,7 @@ function animate() {
     // Update animated components
     sky.updateSky();
     fireworks.update();
-    rocket.update(); // Add rocket update to the loop
+    rocket.update(); 
 
     // Render the scene with the camera
     renderer.render(scene, camera);
