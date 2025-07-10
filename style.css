@@ -35,19 +35,18 @@ canvas {
 #header {
     display: flex;
     align-items: center;
-    min-height: 80px;
-    padding: 0;
+    min-height: 60px; /* Reduced height */
+    padding: 0 10px; /* Added some horizontal padding */
     background-color: var(--background-color);
     pointer-events: auto;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.4); /* Subtle shadow for depth */
 }
 
 #logo {
-    max-height: 90%;
-    max-width: 20%;
-    height: auto;
+    max-height: 100%; /* Allow logo to fill the header height */
+    height: 50px; /* Set an explicit height */
+    width: auto; /* Maintain aspect ratio */
     margin-left: 20px;
-    overflow: hidden;
-    padding: 5px 0;
 }
 
 #black-strip {
@@ -131,12 +130,12 @@ canvas {
 /* --- Responsive Media Queries --- */
 @media (max-width: 768px) {
     #logo {
-        max-width: 40%;
-        max-height: 60px;
+        height: 40px; /* Adjust logo height for smaller screens */
+        margin-left: 10px;
     }
 
     #header {
-        min-height: 60px;
+        min-height: 50px;
     }
 
     .control-button {
