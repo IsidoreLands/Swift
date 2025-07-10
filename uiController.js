@@ -1,8 +1,8 @@
-// This module will handle interactions with the HTML UI.
+import { launch as launchRocket } from './rocket.js';
 
+// This function is called when the green button is clicked.
 function onLaunch() {
-    console.log("Launch sequence initiated! The uiController is successfully connected.");
-    // In future iterations, this will call the launch sequence from rocket.js
+    launchRocket();
 }
 
 function init() {
