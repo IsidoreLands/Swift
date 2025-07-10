@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <title>Three.js Particle Flow Logo</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000000; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js"
+        }
+    }
+    </script>
+    
+    <script type="module">
+        import * as THREE from 'three';
+
+        // --- CONFIGURATION ---
+        const LOGO_URL = './OODA Genesis Transparent.png';
+        const LOGO_WIDTH = 8;
+        
+        // --- Flame Particles ---
+        const FLAME_PARTICLE_COUNT = 80000;
+        const FLAME_SPEED = 0.1;
+        const FLAME_COLORS = [new THREE.Color(0xffffff), new THREE.Color(0xffaa00), new THREE.Color(0xff4400)];
+        const FLAME_TRAIL_LENGTH = 15.0;
+
+        // --- Smoke Particles ---
+        const SMOKE_PARTICLE_COUNT = 80000;
+        const SMOKE_SPEED = 0.08;
+        const SMOKE_COLORS = [new THREE.Color(0xffffff), new THREE.Color(0x5A6468), new THREE.Color(0x88aaff)];
+        const SMOKE_TRAIL_LENGTH = 25.0;
+
+        // --- SETUP ---
+        let scene, camera, renderer, clock;
+        let flameParticles, smokeParticles;
+        let startPositions;
+
+        function init() {
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 10;
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            document.body.appendChild(renderer.domElement);
+            clock = new THREE.Clock();
+            loadLogoAndInitSimulation();
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function loadLogoAndInitSimulation() {
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.load(LOGO_URL, (texture) => {
+                texture.minFilter = THREE.LinearFilter;
+                texture.magFilter = THREE.LinearFilter;
+
+                const logoAspect = texture.image.width / texture.image.height;
+                const logoHeight = LOGO_WIDTH / logoAspect;
+                const logoMaterial = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: false });
+                const logoPlane = new THREE.Mesh(new THREE.PlaneGeometry(LOGO_WIDTH, logoHeight), logoMaterial);
+                scene.add(logoPlane);
+
+                const image = texture.image;
+                const canvas = document.createElement('canvas');
+                canvas.width = image.width;
+                canvas.height = image.height;
+                const context = canvas.getContext('2d');
+                context.drawImage(image, 0, 0);
+                const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+                
+                const positions = [];
+                const density = 1;
+                for (let y = 0; y < canvas.height; y += density) {
+                    for (let x = 0; x < canvas.width; x += density) {
+                        if (imageData.data[(y * canvas.width + x) * 4 + 3] > 50) {
+                            positions.push((x / canvas.width - 0.5) * LOGO_WIDTH, (-y / canvas.height + 0.5) * logoHeight, 0);
+                        }
+                    }
+                }
+                startPositions = new Float32Array(positions);
+
+                createFlameParticles();
+                createSmokeParticles();
+                animate();
+            }, undefined, (err) => {
+                console.error('Error loading logo.', err);
+            });
+        }
+
+        function createFlameParticles() {
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(FLAME_PARTICLE_COUNT * 3);
+            const colors = new Float32Array(FLAME_PARTICLE_COUNT * 3);
+            const initialVelocities = new Float32Array(FLAME_PARTICLE_COUNT * 3);
+
+            for (let i = 0; i < FLAME_PARTICLE_COUNT; i++) {
+                const i3 = i * 3;
+                const randomIndex = Math.floor(Math.random() * (startPositions.length / 3)) * 3;
+                const startZ = Math.random() * -FLAME_TRAIL_LENGTH;
+                positions[i3] = startPositions[randomIndex];
+                positions[i3 + 1] = startPositions[randomIndex + 1];
+                positions[i3 + 2] = startZ;
+                
+                const color = FLAME_COLORS[Math.floor(Math.random() * FLAME_COLORS.length)];
+                colors[i3] = color.r; colors[i3 + 1] = color.g; colors[i3 + 2] = color.b;
+
+                initialVelocities[i3] = (Math.random() - 0.5) * 0.01; // x turbulence
+                initialVelocities[i3 + 1] = (Math.random() - 0.5) * 0.01; // y turbulence
+                initialVelocities[i3 + 2] = -FLAME_SPEED; // z main velocity
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('initialVelocity', new THREE.BufferAttribute(initialVelocities, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.04, vertexColors: true, blending: THREE.AdditiveBlending, 
+                transparent: true, depthWrite: false, opacity: 0.8,
+                map: new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/sprites/spark1.png')
+            });
+
+            flameParticles = new THREE.Points(geometry, material);
+            scene.add(flameParticles);
+        }
+
+        function createSmokeParticles() {
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(SMOKE_PARTICLE_COUNT * 3);
+            const colors = new Float32Array(SMOKE_PARTICLE_COUNT * 3);
+            const initialVelocities = new Float32Array(SMOKE_PARTICLE_COUNT * 3);
+
+            for (let i = 0; i < SMOKE_PARTICLE_COUNT; i++) {
+                const i3 = i * 3;
+                const randomIndex = Math.floor(Math.random() * (startPositions.length / 3)) * 3;
+                const startZ = Math.random() * -SMOKE_TRAIL_LENGTH;
+                positions[i3] = startPositions[randomIndex];
+                positions[i3 + 1] = startPositions[randomIndex + 1];
+                positions[i3 + 2] = startZ;
+
+                const color = SMOKE_COLORS[Math.floor(Math.random() * SMOKE_COLORS.length)];
+                colors[i3] = color.r; colors[i3 + 1] = color.g; colors[i3 + 2] = color.b;
+
+                initialVelocities[i3] = (Math.random() - 0.5) * 0.02;
+                initialVelocities[i3 + 1] = (Math.random() - 0.5) * 0.02;
+                initialVelocities[i3 + 2] = -SMOKE_SPEED;
+            }
+            
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            geometry.setAttribute('initialVelocity', new THREE.BufferAttribute(initialVelocities, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.08, vertexColors: true, blending: THREE.NormalBlending, 
+                transparent: true, depthWrite: false, opacity: 0.5,
+                map: new THREE.TextureLoader().load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/sprites/spark1.png')
+            });
+
+            smokeParticles = new THREE.Points(geometry, material);
+            smokeParticles.position.z = -0.1; // Place smoke behind flames
+            scene.add(smokeParticles);
+        }
+
+        function animate() {
+            const delta = clock.getDelta();
+
+            // Animate Flames
+            if (flameParticles) {
+                const positions = flameParticles.geometry.attributes.position.array;
+                const velocities = flameParticles.geometry.attributes.initialVelocity.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i] += velocities[i] * delta * 10;
+                    positions[i+1] += velocities[i+1] * delta * 10;
+                    positions[i+2] += velocities[i+2] * delta * 10;
+                    if (positions[i+2] < -FLAME_TRAIL_LENGTH) {
+                        const randomIndex = Math.floor(Math.random() * (startPositions.length / 3)) * 3;
+                        positions[i] = startPositions[randomIndex];
+                        positions[i+1] = startPositions[randomIndex+1];
+                        positions[i+2] = 0;
+                    }
+                }
+                flameParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            // Animate Smoke
+            if (smokeParticles) {
+                const positions = smokeParticles.geometry.attributes.position.array;
+                const velocities = smokeParticles.geometry.attributes.initialVelocity.array;
+                for (let i = 0; i < positions.length; i += 3) {
+                    positions[i] += velocities[i] * delta * 10;
+                    positions[i+1] += velocities[i+1] * delta * 10;
+                    positions[i+2] += velocities[i+2] * delta * 10;
+                    if (positions[i+2] < -SMOKE_TRAIL_LENGTH) {
+                        const randomIndex = Math.floor(Math.random() * (startPositions.length / 3)) * 3;
+                        positions[i] = startPositions[randomIndex];
+                        positions[i+1] = startPositions[randomIndex+1];
+                        positions[i+2] = 0;
+                    }
+                }
+                smokeParticles.geometry.attributes.position.needsUpdate = true;
+            }
+
+            renderer.render(scene, camera);
+            requestAnimationFrame(animate);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        init();
+    </script>
+</body>
+</html>
