@@ -58,7 +58,7 @@ function init(scene) {
         const colors = [];
         const sizes = [];
         const brightnessThreshold = 15;
-        const radius = 1900; // Place particles just inside the main skybox
+        const radius = 1900;
 
         for (let i = 0; i < data.length; i += 4) {
             const brightness = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
@@ -67,11 +67,9 @@ function init(scene) {
                 const x = (i / 4) % w;
                 const y = Math.floor((i / 4) / w);
 
-                // Convert 2D pixel coordinate to a 3D spherical coordinate
-                const azimuthalAngle = (x / w) * Math.PI * 2; // Full circle
-                const polarAngle = (y / h) * Math.PI; // Half circle (pole to pole)
+                const azimuthalAngle = (x / w) * Math.PI * 2;
+                const polarAngle = (y / h) * Math.PI;
 
-                // Convert spherical to Cartesian coordinates (X, Y, Z)
                 const X = radius * Math.sin(polarAngle) * Math.cos(azimuthalAngle);
                 const Y = radius * Math.cos(polarAngle);
                 const Z = radius * Math.sin(polarAngle) * Math.sin(azimuthalAngle);
@@ -91,12 +89,11 @@ function init(scene) {
             vertexShader: vertexShader,
             fragmentShader: fragmentShader,
             blending: THREE.AdditiveBlending,
-            transparent: true,
-            depthTest: false
+            transparent: true
+            // Removed 'depthTest: false' to fix layering issue
         });
 
         galaxyParticles = new THREE.Points(geometry, material);
-        // Rotate the particle system to appear on the "horizon"
         galaxyParticles.rotation.z = Math.PI / 12;
         scene.add(galaxyParticles);
     };
@@ -105,12 +102,11 @@ function init(scene) {
 }
 
 function updateSky() {
-    // Rotate both layers for a cohesive, deep space effect
     if (skybox) {
         skybox.rotation.y -= 0.0001;
     }
     if (galaxyParticles) {
-        galaxyParticles.rotation.y -= 0.00011; // Slightly faster for subtle parallax
+        galaxyParticles.rotation.y -= 0.00011; 
     }
 }
 
