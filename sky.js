@@ -3,7 +3,7 @@ import * as THREE from 'three';
 let galaxyParticles; // Milky Way patch
 let backgroundParticles; // Full-sphere background
 
-// --- Shaders (Retained with soft edges) ---
+// --- Shaders (Adjusted for sharper, smaller stars) ---
 const vertexShader = `
     precision mediump float;
     uniform mat4 modelViewMatrix;
@@ -16,8 +16,8 @@ const vertexShader = `
     void main() {
         vColor = color;
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        // Constant point size (tuned higher to avoid subpixel aliasing)
-        gl_PointSize = size * 4.0; 
+        // Reduced multiplier for smaller, distant star appearance
+        gl_PointSize = size * 1.5; 
         gl_Position = projectionMatrix * mvPosition;
     }
 `;
@@ -30,7 +30,8 @@ const fragmentShader = `
         vec2 coord = gl_PointCoord - vec2(0.5, 0.5);
         float dist = length(coord);
         if (dist > 0.5) discard;
-        float alpha = 1.0 - smoothstep(0.4, 0.5, dist);
+        // Tightened smoothstep for sharper edges, less bubbly/snowy look
+        float alpha = 1.0 - smoothstep(0.45, 0.5, dist);
         gl_FragColor = vec4(vColor, alpha);
     }
 `;
@@ -69,8 +70,8 @@ function init(scene) {
         fragmentShader: fragmentShader,
         blending: THREE.AdditiveBlending,
         transparent: true,
-        depthTest: false, // Added for sky layers
-        depthWrite: false
+        depthTest: true, // Enabled to prevent clipping over foreground
+        depthWrite: false // Disabled for transparent layering
     });
 
     backgroundParticles = new THREE.Points(bgGeometry, bgMaterial);
@@ -146,8 +147,8 @@ function init(scene) {
             fragmentShader: fragmentShader,
             blending: THREE.AdditiveBlending,
             transparent: true,
-            depthTest: false,
-            depthWrite: false
+            depthTest: true, // Enabled to prevent clipping over foreground
+            depthWrite: false // Disabled for transparent layering
         });
 
         galaxyParticles = new THREE.Points(geometry, material);
