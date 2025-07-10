@@ -99,11 +99,9 @@ function launch() {
 
 function update() {
     if (isLaunching) {
-        // Animate Rocket Position
         launchVelocity += launchAcceleration;
         rocketPlaceholder.position.y += launchVelocity;
 
-        // Animate Afterburner
         const afterburnerPos = afterburnerSystem.geometry.attributes.position.array;
         const afterburnerVel = afterburnerSystem.geometry.attributes.velocity.array;
         for (let i = 0; i < afterburnerPos.length; i += 3) {
@@ -116,7 +114,6 @@ function update() {
         }
         afterburnerSystem.geometry.attributes.position.needsUpdate = true;
 
-        // Animate Smoke
         const smokePos = smokeSystem.geometry.attributes.position.array;
         const smokeVel = smokeSystem.geometry.attributes.velocity.array;
         for (let i = 0; i < smokePos.length; i += 3) {
@@ -133,4 +130,12 @@ function update() {
     }
 }
 
-export { createPlaceholders, launch, update };
+// Export the rocket object and state for the main loop to use
+function getRocketState() {
+    return {
+        isLaunching: isLaunching,
+        model: rocketPlaceholder
+    };
+}
+
+export { createPlaceholders, launch, update, getRocketState };
