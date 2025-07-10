@@ -56,7 +56,6 @@ function createPlaceholders(scene) {
     // Uniforms for the shader material
     const lightDirection = new THREE.Vector3(0.5, 0.5, 1).normalize();
     
-    // Toon material for the rocket body
     const bodyMat = new THREE.ShaderMaterial({
         uniforms: {
             uColor: { value: new THREE.Color(0xADD8E6) }, // Light Blue
@@ -66,7 +65,6 @@ function createPlaceholders(scene) {
         fragmentShader: toonFragmentShader
     });
     
-    // Toon material for the rocket cone
     const coneMat = new THREE.ShaderMaterial({
         uniforms: {
             uColor: { value: new THREE.Color(0xFF4500) }, // Orange-Red
@@ -127,7 +125,8 @@ function createSmoke() {
         positions[i * 3 + 2] = (Math.random() - 0.5) * 2;
         velocities[i * 3] = (Math.random() - 0.5) * 0.5;
         velocities[i * 3 + 1] = Math.random() * 0.5;
-        velocिटीज[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
+        // Corrected typo on this line
+        velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.5;
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
