@@ -78,7 +78,7 @@ function init(scene) {
     const bgPositions = [];
     const bgColors = [];
     const bgSizes = [];
-    const numBgStars = 8000; // Low for performance
+    const numBgStars = 5000; // Reduced for better performance
 
     for (let i = 0; i < numBgStars; i++) {
         const theta = Math.acos(2 * Math.random() - 1); // Uniform distribution
@@ -110,6 +110,7 @@ function init(scene) {
     });
 
     backgroundParticles = new THREE.Points(bgGeometry, bgMaterial);
+    backgroundParticles.renderOrder = -1; // Render first to avoid clipping
     scene.add(backgroundParticles);
 
     // Textured dome for Milky Way gas/rifts (half-sphere, northwest focus)
@@ -140,6 +141,7 @@ function init(scene) {
 
         skyDome = new THREE.Mesh(domeGeometry, domeMaterial);
         skyDome.position.y = -10; // Slight offset for hill-base view
+        skyDome.renderOrder = -2; // Render even earlier
         scene.add(skyDome);
     });
 
@@ -160,8 +162,8 @@ function init(scene) {
         const colors = [];
         const sizes = [];
         const brightThreshold = 150; // Only bright stars
-        const subsample = 4; // Reduce density
-        const jitter = 5.0; // Small jitter to break patterns
+        const subsample = 6; // Further reduced density for performance and less moiré
+        const jitter = 10.0; // Increased jitter to break patterns
 
         for (let y = 0; y < h; y += subsample) {
             for (let x = 0; x < w; x += subsample) {
@@ -183,7 +185,7 @@ function init(scene) {
 
                     positions.push(X, Y, Z);
                     colors.push(data[i]/255 * 0.8, data[i+1]/255 * 0.8, data[i+2]/255);
-                    sizes.push(brightness / 100 + Math.random());
+                    sizes.push(brightness / 150 + Math.random() * 0.5); // Smaller sizes
                 }
             }
         }
@@ -204,6 +206,7 @@ function init(scene) {
         });
 
         starParticles = new THREE.Points(geometry, material);
+        starParticles.renderOrder = -1; // Render early to avoid clipping
         scene.add(starParticles);
     };
 
@@ -215,15 +218,15 @@ function updateSky() {
 
     if (backgroundParticles) {
         backgroundParticles.material.uniforms.time.value = time;
-        backgroundParticles.rotation.y -= 0.00005; // Very slow rotation
+        backgroundParticles.rotation.y -= 0.00002; // Slower rotation for performance
     }
     if (skyDome) {
         skyDome.material.uniforms.time.value = time;
-        skyDome.rotation.y -= 0.00005;
+        skyDome.rotation.y -= 0.00002;
     }
     if (starParticles) {
         starParticles.material.uniforms.time.value = time;
-        starParticles.rotation.y -= 0.00005;
+        starParticles.rotation.y -= 0.00002;
     }
 }
 
