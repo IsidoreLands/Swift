@@ -1,7 +1,10 @@
 import * as THREE from 'three';
 
 let rocketPlaceholder;
+let afterburnerSystem;
+let isLaunching = false;
 
+// Creates the static placeholder models
 function createPlaceholders(scene) {
     // Grassy Hill
     const hillGeo = new THREE.CircleGeometry(200, 64);
@@ -28,12 +31,74 @@ function createPlaceholders(scene) {
     const cone = new THREE.Mesh(coneGeo, coneMat);
     cone.position.y = 10;
     rocketPlaceholder.add(cone);
+
+    createAfterburner();
 }
 
-// This function will be called by the uiController to start the launch.
+// Sets up the afterburner particle system
+function createAfterburner() {
+    const particleCount = 2000;
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = new Float32Array(particleCount * 3);
+
+    for (let i = 0; i < particleCount; i++) {
+        const i3 = i * 3;
+        positions[i3] = (Math.random() - 0.5) * 0.5; // Emerge from a small area
+        positions[i3 + 1] = (Math.random() * -5) - 7.5; // Start at rocket base
+        positions[i3 + 2] = (Math.random() - 0.5) * 0.5;
+
+        velocities[i3] = (Math.random() - 0.5) * 0.1;
+        velocities[i3 + 1] = -5 - Math.random(); // Strong downward velocity
+        velocities[i3 + 2] = (Math.random() - 0.5) * 0.1;
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+
+    const textureLoader = new THREE.TextureLoader();
+    const particleTexture = textureLoader.load('flame-png-transparent-4.png');
+
+    const material = new THREE.PointsMaterial({
+        size: 2,
+        map: particleTexture,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        transparent: true,
+        color: 0xffa500 // Orange tint
+    });
+
+    afterburnerSystem = new THREE.Points(geometry, material);
+    afterburnerSystem.visible = false; // Initially hidden
+    rocketPlaceholder.add(afterburnerSystem);
+}
+
+// Starts the launch sequence
 function launch() {
-    console.log("Launch function in rocket.js successfully called.");
-    // Afterburner, smoke, and animation logic will be added here.
+    if (!isLaunching) {
+        isLaunching = true;
+        afterburnerSystem.visible = true;
+    }
 }
 
-export { createPlaceholders, launch };
+// Animates the particles on each frame
+function update() {
+    if (isLaunching && afterburnerSystem) {
+        const positions = afterburnerSystem.geometry.attributes.position.array;
+        const velocities = afterburnerSystem.geometry.attributes.velocity.array;
+
+        for (let i = 0; i < positions.length; i += 3) {
+            positions[i + 1] += velocities[i + 1] * 0.05; // Move particles down
+
+            // Reset particle when it goes too far
+            if (positions[i + 1] < -20) {
+                positions[i] = (Math.random() - 0.5) * 0.5;
+                positions[i + 1] = -7.5;
+                positions[i + 2] = (Math.random() - 0.5) * 0.5;
+            }
+        }
+        afterburnerSystem.geometry.attributes.position.needsUpdate = true;
+    }
+}
+
+export { createPlaceholders, launch, update };
