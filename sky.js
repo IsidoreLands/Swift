@@ -1,9 +1,9 @@
 import * as THREE from 'three';
 
-let galaxyParticles; // Milky Way patch
+let galaxyMesh; // Milky Way textured patch
 let backgroundParticles; // Full-sphere background
 
-// --- Shaders (Adjusted for sharper, smaller stars) ---
+// --- Shaders for background particles (Adjusted for sharper, smaller stars) ---
 const vertexShader = `
     precision mediump float;
     uniform mat4 modelViewMatrix;
@@ -43,7 +43,7 @@ function init(scene) {
     const bgPositions = [];
     const bgColors = [];
     const bgSizes = [];
-    const numStars = 10000; // Low density to minimize moiré
+    const numStars = 10000; // Low density
 
     for (let i = 0; i < numStars; i++) {
         const polarAngle = Math.random() * Math.PI;
@@ -55,9 +55,9 @@ function init(scene) {
 
         bgPositions.push(X, Y, Z);
 
-        const intensity = Math.random() * 0.5 + 0.3; // Dim, neutral stars
-        bgColors.push(intensity, intensity, intensity * 0.9); // Slight blue tint
-        bgSizes.push(Math.random() * 1.5 + 0.5); // Small variation
+        const intensity = Math.random() * 0.5 + 0.3;
+        bgColors.push(intensity, intensity, intensity * 0.9);
+        bgSizes.push(Math.random() * 1.5 + 0.5);
     }
 
     const bgGeometry = new THREE.BufferGeometry();
@@ -70,98 +70,47 @@ function init(scene) {
         fragmentShader: fragmentShader,
         blending: THREE.AdditiveBlending,
         transparent: true,
-        depthTest: true, // Enabled to prevent clipping over foreground
-        depthWrite: false // Disabled for transparent layering
+        depthTest: true,
+        depthWrite: false
     });
 
     backgroundParticles = new THREE.Points(bgGeometry, bgMaterial);
     scene.add(backgroundParticles);
 
-    // --- Milky Way Patch from eso0932a.jpg (Localized to Northwestern Horizon) ---
-    const canvas = document.getElementById('image-canvas');
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    const img = new Image();
+    // --- Milky Way Patch as Textured Partial Sphere (for diffuse gas, unresolved stars, and dark rifts) ---
+    const textureLoader = new THREE.TextureLoader();
+    textureLoader.load('eso0932a.jpg', (texture) => {
+        texture.minFilter = THREE.LinearMipMapLinearFilter; // Anti-aliasing and smooth scaling
+        texture.magFilter = THREE.LinearFilter;
+        texture.encoding = THREE.sRGBEncoding; // Better color for astronomical image
 
-    img.onload = function() {
-        const w = this.naturalWidth;
-        const h = this.naturalHeight;
-        canvas.width = w;
-        canvas.height = h;
-        ctx.drawImage(this, 0, 0, w, h);
-        const data = ctx.getImageData(0, 0, w, h).data;
+        // Define patch angular size (e.g., 180° azimuthal x 72° polar)
+        const phiStart = 7 * Math.PI / 4 - Math.PI / 2; // Center at northwest, width 180° (Math.PI radians)
+        const phiLength = Math.PI; // 180°
+        const thetaStart = Math.PI / 2 - (0.4 * Math.PI); // Center at horizon, height ~72° (0.4 * Math.PI ~72° total, from ~54° to 126° polar)
+        const thetaLength = 0.4 * Math.PI;
 
-        const positions = [];
-        const colors = [];
-        const sizes = [];
-        const brightnessThreshold = 50;
-        const jitterStrength = 30.0;
-
-        // Patch clipping (central section for smaller insert, e.g., ~180° az x ~72° pol)
-        const start_x_ratio = 0.25; // Left of galactic center
-        const end_x_ratio = 0.75; // Right
-        const start_y_ratio = 0.3; // Slightly above/below band
-        const end_y_ratio = 0.7;
-        const original_az_center = ((start_x_ratio + end_x_ratio) / 2) * Math.PI * 2;
-        const original_pol_center = ((start_y_ratio + end_y_ratio) / 2) * Math.PI;
-
-        // Target position: Northwestern horizon (adjust as needed)
-        const center_az = 7 * Math.PI / 4; // 315° (northwest)
-        const center_pol = Math.PI / 2; // 90° (horizon/equator)
-
-        // Subsample for density reduction
-        for (let y = Math.floor(h * start_y_ratio); y < h * end_y_ratio; y += 2) {
-            for (let x = Math.floor(w * start_x_ratio); x < w * end_x_ratio; x += 2) {
-                const i = (y * w + x) * 4;
-                const brightness = 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2];
-
-                if (brightness > brightnessThreshold) {
-                    let azimuthalAngle = (x / w) * Math.PI * 2;
-                    let polarAngle = (y / h) * Math.PI;
-
-                    // Shift to target position
-                    azimuthalAngle = azimuthalAngle - original_az_center + center_az;
-                    polarAngle = polarAngle - original_pol_center + center_pol;
-
-                    const X = radius * Math.sin(polarAngle) * Math.cos(azimuthalAngle);
-                    const Y = radius * Math.cos(polarAngle);
-                    const Z = radius * Math.sin(polarAngle) * Math.sin(azimuthalAngle);
-                    
-                    const jx = (Math.random() - 0.5) * jitterStrength;
-                    const jy = (Math.random() - 0.5) * jitterStrength;
-                    const jz = (Math.random() - 0.5) * jitterStrength;
-
-                    positions.push(X + jx, Y + jy, Z + jz);
-                    colors.push(data[i] / 255, data[i+1] / 255, data[i+2] / 255);
-                    sizes.push((brightness / 100) * (0.7 + Math.random() * 0.6));
-                }
-            }
-        }
-
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
+        const geometry = new THREE.SphereGeometry(radius, 128, 64, phiStart, phiLength, thetaStart, thetaLength);
         
-        const material = new THREE.RawShaderMaterial({
-            vertexShader: vertexShader,
-            fragmentShader: fragmentShader,
-            blending: THREE.AdditiveBlending,
+        const material = new THREE.MeshBasicMaterial({
+            map: texture,
+            side: THREE.BackSide, // Render inside the sphere
             transparent: true,
-            depthTest: true, // Enabled to prevent clipping over foreground
-            depthWrite: false // Disabled for transparent layering
+            opacity: 0.8, // Slight transparency to blend with background stars
+            blending: THREE.AdditiveBlending, // Additive for glowing effect
+            depthTest: true,
+            depthWrite: false
         });
 
-        galaxyParticles = new THREE.Points(geometry, material);
-        galaxyParticles.rotation.z = Math.PI / 12; // Retained tilt
-        scene.add(galaxyParticles);
-    };
-
-    img.src = 'eso0932a.jpg';
+        galaxyMesh = new THREE.Mesh(geometry, material);
+        galaxyMesh.rotation.z = Math.PI / 12; // Retained tilt if needed
+        scene.add(galaxyMesh);
+    });
 }
 
 function updateSky() {
-    if (galaxyParticles) {
-        galaxyParticles.rotation.y -= 0.001; // Temporary for testing
+    if (galaxyMesh) {
+        galaxyMesh.rotation.y -= 0.001; // Temporary for testing
     }
     if (backgroundParticles) {
         backgroundParticles.rotation.y -= 0.001; // Sync rotation
