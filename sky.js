@@ -1,0 +1,1 @@
+// Scrolling night sky animation
