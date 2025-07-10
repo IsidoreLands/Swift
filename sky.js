@@ -2,25 +2,30 @@ import * as THREE from 'three';
 
 let skyParticles;
 
-// --- Shaders (from Gist) ---
+// --- Shaders (Corrected) ---
 const vertexShader = `
-    varying vec4 vColor;
-    attribute vec4 color;
+    // The 'color' attribute is now provided automatically by Three.js
     attribute float size;
+    varying vec3 vColor;
 
     void main() {
+        // Pass the color attribute to the fragment shader
         vColor = color;
+
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = size * (200.0 / -mvPosition.z);
+        gl_PointSize = size * (300.0 / -mvPosition.z);
         gl_Position = projectionMatrix * mvPosition;
     }
 `;
 
 const fragmentShader = `
-    varying vec4 vColor;
+    varying vec3 vColor;
 
     void main() {
-        gl_FragColor = vec4(vColor.xyz, 1.0);
+        // Create a circular point shape
+        if (length(gl_PointCoord - vec2(0.5, 0.5)) > 0.475) discard;
+        
+        gl_FragColor = vec4(vColor, 1.0);
     }
 `;
 
@@ -43,7 +48,7 @@ function init(scene) {
         const positions = [];
         const colors = [];
         const sizes = [];
-        const brightnessThreshold = 20; // Ignore very dim pixels
+        const brightnessThreshold = 20;
 
         for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
@@ -55,19 +60,18 @@ function init(scene) {
                 const x = (i / 4) % w;
                 const y = Math.floor((i / 4) / w);
                 
-                // Center the image and scale it down
                 positions.push((x - w / 2) * 0.5);
                 positions.push((-y + h / 2) * 0.5); 
-                positions.push(-1000); // Position far back
+                positions.push(-1000);
 
                 colors.push(r / 255, g / 255, b / 255);
-                sizes.push(brightness / 100); // Particle size based on brightness
+                sizes.push(brightness / 100);
             }
         }
 
         const geometry = new THREE.BufferGeometry();
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3)); // This provides the 'color' attribute
         geometry.setAttribute('size', new THREE.Float32BufferAttribute(sizes, 1));
         
         const material = new THREE.ShaderMaterial({
@@ -86,7 +90,6 @@ function init(scene) {
 }
 
 function updateSky() {
-    // We can add rotation or other animations here later if needed.
     if (skyParticles) {
         skyParticles.rotation.y -= 0.00005;
     }
