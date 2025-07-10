@@ -58,7 +58,8 @@ function createPlaceholders(scene) {
     // --- Load the GLB Model ---
     const loader = new GLTFLoader();
     const textureLoader = new THREE.TextureLoader();
-    const painterlyTexture = textureLoader.load('Rocket_Dreams_0710234359_texture.jpg');
+    // Corrected the filename extension to .png
+    const painterlyTexture = textureLoader.load('Rocket_Dreams_0710234359_texture.png');
     
     const lightDirection = new THREE.Vector3(0.5, 0.5, 1).normalize();
 
@@ -74,14 +75,12 @@ function createPlaceholders(scene) {
     loader.load('swiftrocket.glb', (gltf) => {
         const model = gltf.scene;
         
-        // Apply our custom material to all parts of the loaded model
         model.traverse((child) => {
             if (child.isMesh) {
                 child.material = customToonMaterial;
             }
         });
 
-        // Scale and position the model within the group
         model.scale.set(5, 5, 5);
         model.position.y = -7.5;
         rocketPlaceholder.add(model);
