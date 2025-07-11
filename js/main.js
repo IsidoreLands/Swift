@@ -19,8 +19,20 @@ import * as fireworks from './fireworks.js';
 
             window.addEventListener('resize', this.onResize);
 
-            fireworks.init(scene);
-            this.render();
+            // Load the shader files, then initialize the fireworks
+            this.loadFiles().then(shaderFiles => {
+                fireworks.init(scene, shaderFiles);
+                this.render();
+            });
+        }
+
+        loadFiles() {
+            const loader = new THREE.FileLoader();
+            const files = ['glsl/quad.vert', 'glsl/quad.frag'];
+            const promises = files.map(file => 
+                new Promise(resolve => loader.load(file, resolve))
+            );
+            return Promise.all(promises);
         }
 
         render() {
