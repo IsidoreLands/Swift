@@ -1,89 +1,61 @@
 import * as THREE from 'three';
-import * as sceneManager from './sceneManager.js';
 import * as fireworks from './fireworks.js';
 
-$(document).ready(function() {
-  main();
-});
+// Self-invoking main function, replaces $(document).ready()
+(function main() {
+    let renderer, scene, camera;
 
-function main() {
-  var renderer, scene, camera, stats, gui;
-  var self = this;
+    // Use a class to manage state, replacing the old 'self' pattern
+    class App {
+        constructor() {
+            this.init();
+        }
 
-  var MyGUI = function() {
-    this.launch = function() {
-      fireworks.createFirework(); // Call the module's function
+        init() {
+            const canvas = document.querySelector('#canvas');
+            renderer = new THREE.WebGLRenderer({
+                canvas: canvas,
+                antialias: true
+            });
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            
+            this.onResize(); // Set initial size
+            window.addEventListener('resize', this.onResize);
+
+            this.loadFiles();
+        }
+
+        loadFiles() {
+            const loader = new THREE.FileLoader();
+            const files = ['glsl/quad.vert', 'glsl/quad.frag'];
+
+            const promises = files.map(file => 
+                new Promise(resolve => loader.load(file, resolve))
+            );
+
+            Promise.all(promises).then(shaderFiles => {
+                fireworks.init(scene, shaderFiles);
+                this.render();
+            });
+        }
+
+        render() {
+            renderer.render(scene, camera);
+            fireworks.update();
+            requestAnimationFrame(() => this.render());
+        }
+
+        onResize() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            camera.aspect = w / h;
+            camera.updateProjectionMatrix();
+            renderer.setSize(w, h);
+        }
     }
-    this.launchMultiple = function() {
-      for (var i = 0; i < 5; i++) {
-        setTimeout(function() {
-          fireworks.createFirework(); // Call the module's function
-        }, (i + 1) * 200);
-      }
-    }
-    this.clear = function() {
-      // This functionality will need to be added to the fireworks module if desired
-      console.log("Clear function needs implementation in fireworks.js");
-    }
-  };
 
-  self.init = function() {
-    const components = sceneManager.init();
-    camera = components.camera;
-    scene = components.scene;
-    renderer = components.renderer;
-
-    stats = new Stats();
-    stats.showPanel(0); 
-    $('body').append(stats.dom);
-
-    var mygui = new MyGUI();
-    gui = new dat.GUI();
-    gui.add(mygui, 'launch');
-    gui.add(mygui, 'launchMultiple');
-    gui.add(mygui, 'clear');
-
-    self.loadFiles();
-  }
-
-  self.loadFiles = function() {
-    var loader = new THREE.FileLoader();
-    var files = ['glsl/quad.vert', 'glsl/quad.frag'];
-    var promises = [];
-    for (var i = 0; i < files.length; i++) {
-      var p = new Promise(function(resolve, reject) {
-        loader.load(files[i], function(data) {
-          resolve(data);
-        });
-      });
-      promises.push(p);
-    }
-
-    Promise.all(promises).then(function(data) {
-      // Pass the scene and shader files to the fireworks module
-      fireworks.init(scene, data); 
-      self.render();
-    });
-  }
-
-  self.render = function() {
-    stats.begin();
-    renderer.render(scene, camera);
-    stats.end();
-
-    // The main update call is now handled by the module
-    fireworks.update(); 
-
-    requestAnimationFrame(self.render);
-  }
-
-  self.onResize = function() {
-    sceneManager.onResize();
-  }
-
-  $(window).on('resize', self.onResize);
-
-  // The Firework class is now entirely within fireworks.js
-  
-  self.init();
-}
+    new App();
+})();
