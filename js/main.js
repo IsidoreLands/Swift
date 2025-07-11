@@ -1,4 +1,5 @@
-// Aguamenti - https://codepen.io/ashthornton/pen/vLBeLg
+import * as THREE from 'three';
+import * as sceneManager from './sceneManager.js';
 
 $(document).ready(function() {
   main();
@@ -26,21 +27,14 @@ function main() {
   };
 
   self.init = function() {
-    canvas = $('#canvas')[0];
-
-    renderer = new THREE.WebGLRenderer({
-      canvas: canvas,
-      antialias: true
-    });
-    renderer.setPixelRatio(window.devicePixelRatio);
-
-    scene = new THREE.Scene();
-
-    camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
-    self.onResize();
+    // Use the new sceneManager to set up the scene
+    const components = sceneManager.init();
+    camera = components.camera;
+    scene = components.scene;
+    renderer = components.renderer;
 
     stats = new Stats();
-    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    stats.showPanel(0); 
     $('body').append(stats.dom);
 
     var mygui = new MyGUI();
@@ -93,12 +87,9 @@ function main() {
     requestAnimationFrame(self.render);
   }
 
+  // The onResize handler now calls the function from the sceneManager
   self.onResize = function() {
-    var w = $(window).width();
-    var h = $(window).height();
-    camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    renderer.setSize(w, h);
+    sceneManager.onResize();
   }
 
   $(window).on('resize', self.onResize);
