@@ -7,39 +7,7 @@ let isLaunching = false;
 let launchVelocity = 0;
 const launchAcceleration = 0.05;
 
-// --- Toon Shader (Updated to use vertex colors) ---
-const toonVertexShader = `
-    varying vec3 vNormal;
-    varying vec3 vColor;
-
-    void main() {
-        vNormal = normalize(normalMatrix * normal);
-        vColor = color; // Pass vertex color to fragment shader
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-`;
-
-const toonFragmentShader = `
-    uniform vec3 uLightDirection;
-    varying vec3 vNormal;
-    varying vec3 vColor;
-    
-    void main() {
-        float intensity = max(0.0, dot(vNormal, uLightDirection));
-        vec3 finalColor;
-
-        if (intensity > 0.85) {
-            finalColor = vColor * 1.4; // Highlight
-        } else if (intensity > 0.5) {
-            finalColor = vColor; // Base color
-        } else {
-            finalColor = vColor * 0.6; // Shadow
-        }
-        
-        gl_FragColor = vec4(finalColor, 1.0);
-    }
-`;
-
+// Removed all custom shader code for this test
 
 function createPlaceholders(scene) {
     const hillGeo = new THREE.CircleGeometry(200, 64);
@@ -53,34 +21,20 @@ function createPlaceholders(scene) {
     rocketPlaceholder.position.set(0, 10, 0);
     scene.add(rocketPlaceholder);
 
-    // --- Load the GLB Model ---
+    // --- Load the GLB Model (Simplified) ---
     const loader = new GLTFLoader();
-    const lightDirection = new THREE.Vector3(0.5, 0.5, 1).normalize();
-
-    // Create one material that will be shared by all parts of the rocket
-    const customToonMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            uLightDirection: { value: lightDirection }
-        },
-        vertexShader: toonVertexShader,
-        fragmentShader: toonFragmentShader,
-        vertexColors: true // Tell the material to use the geometry's vertex colors
-    });
 
     loader.load('swiftrocket.glb', (gltf) => {
         const model = gltf.scene;
         
-        model.traverse((child) => {
-            if (child.isMesh) {
-                // Apply the single, shared material to all meshes
-                child.material = customToonMaterial;
-            }
-        });
-
+        // We are NOT traversing or replacing materials.
+        // We will use the materials embedded in the GLB file.
+        
         model.scale.set(5, 5, 5);
         model.position.y = -7.5;
         rocketPlaceholder.add(model);
     });
+
 
     createAfterburner();
     createSmoke();
