@@ -1,277 +1,193 @@
-const shaderFiles = [
-  'quad.frag',
-  'quad.vert'
-];
-let shaderSources = {};
-
-let gui;
-let guiParams = {
-  quality: 0.75,
-  numParticles: 200,
-  brightnessPreset: 1,
-  skyGlow: 2,
-  frontHillGlow: 1.,
-  backHillDensity: 0,
-  backHillGlow: 0.4,
-  starGlow: 0.65,
-  cityGlow: 0.8,
-  resetOptions: function() {
-    guiParams.quality = 0.75;
-    guiParams.numParticles = 200;
-    guiParams.brightnessPreset = 1;
-    guiParams.skyGlow = 2;
-    guiParams.frontHillGlow = 1.;
-    guiParams.backHillDensity = 0;
-    guiParams.backHillGlow = 0.4;
-    guiParams.starGlow = 0.65;
-    guiParams.cityGlow = 0.8;
-    resize();
-  }
-}
-
-
-let canvas;
-let canvasScale = 1;
-let cWidth;
-let cHeight;
-let screenResolution = new THREE.Vector2(0, 0);
-let screenInverseResolution = new THREE.Vector2(0, 0);
-
-let renderer;
-let quadGeometry;
-
-let mainScene;
-let mainCamera;
-let mainMaterial;
-let mainMesh;
-let mainUniforms = {
-  time: {value: 0},
-  resolution: {value: screenResolution},
-  iResolution: {value: screenInverseResolution},
-  startSeed: {value: 0},
-  numParticles: {value: guiParams.numParticles},
-  skyGlow: {value: guiParams.skyGlow},
-  frontHillGlow: {value: guiParams.frontHillGlow},
-  backHillDensity: {value: 0.003 * 1.2**guiParams.backHillDensity},
-  backHillGlow: {value: guiParams.backHillGlow},
-  starGlow: {value: guiParams.starGlow},
-  cityGlow: {value: guiParams.cityGlow}
-};
-
-
-let stats;
-let showingStats = true;
-
-let lastTap = 0;
-
+// Aguamenti - https://codepen.io/ashthornton/pen/vLBeLg
 
 $(document).ready(function() {
-  loadFiles().then(main);
+  main();
 });
 
-
-function loadFiles() {
-  return $.when.apply($, shaderFiles.map(loadFile));
-}
-function loadFile(fileName) {
-  let fullName = './glsl/' + fileName;
-  return $.ajax(fullName).then(function(data) {
-    shaderSources[fileName] = data;
-  });
-}
-
-
 function main() {
+  var canvas, renderer, scene, camera, stats, gui;
+  var fireworks = [];
+  var self = this;
 
-  canvas = document.getElementById('canvas');
-  $(window).resize(resize);
-  document.onkeydown = handleKeys;
-
-  canvas.addEventListener('touchend', function(e) {
-    let currentTime = new Date().getTime();
-    let tapLength = currentTime - lastTap;
-    if (tapLength < 500 && tapLength > 0) {
-      toggleHide();
+  var MyGUI = function() {
+    this.launch = function() {
+      self.createFirework();
     }
-    lastTap = currentTime;
-  });
+    this.launchMultiple = function() {
+      for (var i = 0; i < 5; i++) {
+        setTimeout(function() {
+          self.createFirework();
+        }, (i + 1) * 200);
+      }
+    }
+    this.clear = function() {
+      fireworks = [];
+    }
+  };
 
-  initGUI();
-  initStats();
+  self.init = function() {
+    canvas = $('#canvas')[0];
 
-  let now = new Date().getTime();
-  mainUniforms.startSeed.value = (now / 1000000) % 10;
+    renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+      antialias: true
+    });
+    renderer.setPixelRatio(window.devicePixelRatio);
 
-  restart();
-}
+    scene = new THREE.Scene();
 
+    camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+    self.onResize();
 
-function handleKeys(e) {
-  switch (e.key) {
-    case ' ':
-      toggleHide();
-      break;
-  }
-}
+    stats = new Stats();
+    stats.showPanel(0); // 0: fps, 1: ms, 2: mb, 3+: custom
+    $('body').append(stats.dom);
 
+    var mygui = new MyGUI();
+    gui = new dat.GUI();
+    gui.add(mygui, 'launch');
+    gui.add(mygui, 'launchMultiple');
+    gui.add(mygui, 'clear');
 
-function toggleHide() {
-  dat.GUI.toggleHide();
-
-  if (showingStats) {
-    stats.domElement.style.visibility = 'hidden';
-    showingStats = false;
-  } else {
-    stats.domElement.style.visibility = 'visible';
-    showingStats = true;
-  }
-}
-
-
-function resize() {
-  canvasScale = guiParams.quality;
-  cWidth = Math.floor(canvasScale * window.innerWidth);
-  cHeight = Math.floor(canvasScale * window.innerHeight);
-  screenInverseResolution.x = 1 / cWidth;
-  screenInverseResolution.y = 1 / cHeight;
-  screenResolution.x = cWidth;
-  screenResolution.y = cHeight;
-  canvas.width = cWidth;
-  canvas.height = cHeight;
-
-  if (mainCamera) {
-    mainCamera.aspect = cWidth / cHeight;
-  }
-}
-
-
-function restart() {
-  resize();
-
-  if (mainCamera) {
-    mainCamera.aspect = cWidth / cHeight;
+    self.loadFiles();
   }
 
-  setupGL();
-  animate();
-}
+  self.loadFiles = function() {
+    var loader = new THREE.FileLoader();
+    var files = ['glsl/quad.vert', 'glsl/quad.frag'];
+    var promises = [];
+    for (var i = 0; i < files.length; i++) {
+      var p = new Promise(function(resolve, reject) {
+        var fileIndex = i;
+        loader.load(files[i], function(data) {
+          resolve(data);
+        });
+      });
+      promises.push(p);
+    }
 
-let fPerf, fBright;
-function initGUI() {
-  gui = new dat.GUI();
-  let fTitle = gui.addFolder('To hide: press space or double tap');
-  gui.add(guiParams, 'brightnessPreset', {'Low': 1, 'High': 2}).onChange(applyPreset).listen();
-  fPerf = gui.addFolder('Performance');
-  fPerf.add(guiParams, 'quality', {'Best': 1, 'High': 0.75, 'Medium': 0.5, 'Low': 0.3}).onChange(resize).listen();
-  fPerf.add(guiParams, 'numParticles').min(10).max(300).step(10).listen();
-  fPerf.open();
-  fBright = gui.addFolder('Advanced');
-  fBright.add(guiParams, 'skyGlow').min(0).max(5).step(0.1).listen();
-  fBright.add(guiParams, 'frontHillGlow').min(0).max(3).step(0.05).listen();
-  fBright.add(guiParams, 'backHillDensity').min(-7).max(7).step(1).listen();
-  fBright.add(guiParams, 'backHillGlow').min(0).max(3).step(0.05).listen();
-  fBright.add(guiParams, 'starGlow').min(0).max(3).step(0.05).listen();
-  fBright.add(guiParams, 'cityGlow').min(0).max(2).step(0.1).listen();
-  gui.add(guiParams, 'resetOptions');
-}
-function applyPreset() {
-  if (guiParams.brightnessPreset == 1) {
-    guiParams.skyGlow = 2;
-    guiParams.frontHillGlow = 1.;
-    guiParams.backHillDensity = 0;
-    guiParams.backHillGlow = 0.4;
-    guiParams.starGlow = 0.65;
-    guiParams.cityGlow = 0.8;
-  } else {
-    guiParams.skyGlow = 4.5;
-    guiParams.frontHillGlow = 1.85;
-    guiParams.backHillDensity = 0;
-    guiParams.backHillGlow = 1.;
-    guiParams.starGlow = 1.2;
-    guiParams.cityGlow = 1.4;
+    Promise.all(promises).then(function(data) {
+      self.files = data;
+      self.createFirework();
+      self.render();
+    });
   }
-}
 
+  self.createFirework = function() {
+    fireworks.push(new Firework());
+  }
 
-function initStats() {
-  stats = new Stats();
-  stats.setMode(0);
+  self.render = function() {
+    stats.begin();
+    renderer.render(scene, camera);
+    stats.end();
 
-  stats.domElement.style.position = 'absolute';
-  stats.domElement.style.left = '0';
-  stats.domElement.style.top = '0';
+    for (var i = fireworks.length - 1; i >= 0; i--) {
+      if (fireworks[i].done) {
+        fireworks.splice(i, 1);
+        continue;
+      }
+      fireworks[i].update();
+    }
 
-  document.body.appendChild(stats.domElement);
-}
+    requestAnimationFrame(self.render);
+  }
 
+  self.onResize = function() {
+    var w = $(window).width();
+    var h = $(window).height();
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+  }
 
-function setupGL() {
-  let context = canvas.getContext('webgl2');
-  renderer = new THREE.WebGLRenderer({
-    canvas: canvas,
-    antialias: false,
-    context: context});
-  renderer.autoClear = false;
+  $(window).on('resize', self.onResize);
 
-  // Create a simple quad geometry
-  quadGeometry = new THREE.BufferGeometry();
-  let positions = [
-    -1, -1, 0,
-    1, -1, 0,
-    -1, 1, 0,
-    1, 1, 0,
-    -1, 1, 0,
-    1, -1, 0
-  ];
-  let positionAttribute = new THREE.Float32BufferAttribute(positions, 3);
-  quadGeometry.addAttribute('position', positionAttribute);
+  function Firework() {
+    var firework = this;
+    var a = 8;
+    var b = 15;
+    var c = 15;
+    var m = 2;
+    var n1 = 12;
+    var n2 = 12;
+    var n3 = 12;
+    var TWO_PI = Math.PI * 2;
+    var vertices = [];
+    var velocities = [];
+    var explosion = [];
 
-  mainScene = new THREE.Scene();
-  mainCamera = new THREE.PerspectiveCamera(
-    60,
-    cWidth / cHeight,
-    1,
-    1000);
-  mainScene.add(mainCamera);
-  mainMaterial = new THREE.RawShaderMaterial({
-    vertexShader: shaderSources['quad.vert'],
-    fragmentShader: shaderSources['quad.frag'],
-    uniforms: mainUniforms
-  });
-  mainMesh = new THREE.Mesh(quadGeometry, mainMaterial);
-  mainScene.add(mainMesh);
-}
+    var hu = Math.random();
 
+    self.init = function() {
+      var x = Math.random() * 40 - 20;
+      var y = Math.random() * 20 - 5;
+      var z = Math.random() * 40 - 20;
+      var pos = new THREE.Vector3(x, y, z);
+      var vel = new THREE.Vector3(0, Math.random() * 2 + 10, 0);
 
-function animate() {
-  requestAnimationFrame(animate);
-  update();
-  render();
-}
+      firework.mesh = self.setupGL(pos, vel);
+    }
 
+    self.setupGL = function(pos, vel) {
+      var g = new THREE.BufferGeometry();
+      var m = new THREE.ShaderMaterial({
+        vertexShader: self.files[0],
+        fragmentShader: self.files[1],
+        uniforms: {
+          time: {
+            type: 'f',
+            value: 0.0
+          },
+          size: {
+            type: 'f',
+            value: 5.0
+          },
+          hu: {
+            type: 'f',
+            value: hu
+          },
+        },
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false,
+      });
 
-let startTime = new Date().getTime();
-let thisTime;
-let elapsedTime;
-function update() {
-  thisTime = new Date().getTime();
-  elapsedTime = (thisTime - startTime) * 0.001;
+      var p = new THREE.Points(g, m);
+      p.position.copy(pos);
+      scene.add(p);
 
-  mainUniforms.time.value = elapsedTime;
-  mainUniforms.resolution.value = screenResolution;
-  mainUniforms.iResolution.value = screenInverseResolution;
-  mainUniforms.numParticles.value = guiParams.numParticles;
-  mainUniforms.skyGlow.value = guiParams.skyGlow;
-  mainUniforms.frontHillGlow.value = guiParams.frontHillGlow;
-  mainUniforms.backHillDensity.value = 0.003 * 1.2**guiParams.backHillDensity;
-  mainUniforms.backHillGlow.value = guiParams.backHillGlow;
-  mainUniforms.starGlow.value = guiParams.starGlow;
-  mainUniforms.cityGlow.value = guiParams.cityGlow;
-}
+      var point = new THREE.Vector3();
+      var vel = new THREE.Vector3();
+      var r, ang, ang2;
+      for (var i = 0; i < 5000; i++) {
+        r = Math.random() * 3.0;
+        ang = Math.random() * TWO_PI;
+        ang2 = Math.random() * TWO_PI;
+        point.x = r * Math.sin(ang) * Math.cos(ang2);
+        point.y = r * Math.sin(ang) * Math.sin(ang2);
+        point.z = r * Math.cos(ang);
+        vertices.push(point.x, point.y, point.z);
+        vel.copy(point).multiplyScalar(0.02);
+        velocities.push(vel.x, vel.y, vel.z);
+      }
 
+      g.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+      g.setAttribute('velocity', new THREE.Float32BufferAttribute(velocities, 3));
+      return p;
+    }
 
-function render() {
-  renderer.setSize(cWidth, cHeight);
-  renderer.render(mainScene, mainCamera);
-  stats.update();
+    self.update = function() {
+      firework.mesh.material.uniforms.time.value += 0.02;
+
+      if (firework.mesh.material.uniforms.time.value > 2.0) {
+        firework.done = true;
+        scene.remove(firework.mesh);
+      }
+    }
+
+    self.init();
+  }
+
+  self.init();
 }
