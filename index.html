@@ -13,22 +13,24 @@
   <meta property="og:image" content="ogimage.png">
 
   <link rel="apple-touch-icon" href="icon.png">
+
   <link rel="stylesheet" href="css/normalize.css">
   <link rel="stylesheet" href="css/main.css">
 
   <meta name="theme-color" content="#fafafa">
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
+      }
+    }
+  </script>
 </head>
 
 <body>
-  <script
-    src="https://code.jquery.com/jquery-3.1.1.min.js"
-    integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
-    crossorigin="anonymous"></script>
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js'></script>
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.min.js'></script>
-  <script src='https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js'></script>
   <script src="js/vendor/modernizr-3.11.2.min.js"></script>
-  
   <script type="module" src="js/main.js"></script>
 
   <canvas class="mainCanvas" width="1px" height="1px" id="canvas"></canvas>
