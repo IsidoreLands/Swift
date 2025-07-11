@@ -44,17 +44,18 @@ function createPlaceholders(scene) {
         model.traverse((child) => {
             if (child.isMesh && child.material) {
                 child.material.onBeforeCompile = (shader) => {
-                    // Add our custom light direction uniform
+                    // Add our custom light direction uniform to the shader
                     shader.uniforms.uLightDirection = { value: new THREE.Vector3(0.5, 0.5, 1.0).normalize() };
                     
-                    // The vNormal varying is already available in the standard material, so we just use it.
-                    // We find the end of the fragment shader and replace it with our logic.
+                    // Declare the uniform and varying in the fragment shader
+                    shader.fragmentShader = 'uniform vec3 uLightDirection;\n' + shader.fragmentShader;
+                    
+                    // Replace the end of the fragment shader with our logic
                     shader.fragmentShader = shader.fragmentShader.replace(
                         '#include <dithering_fragment>',
                         '#include <dithering_fragment>\n' + toonShaderLogic
                     );
                 };
-                // We also need to set this flag on the material itself
                 child.material.needsUpdate = true;
             }
         });
