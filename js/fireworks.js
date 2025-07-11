@@ -3,36 +3,52 @@ import * as THREE from 'three';
 let scene;
 const fireworks = [];
 
-function init(threeScene, shaderFiles) {
+// --- Simplified and Corrected Shaders ---
+const vertexShader = `
+    precision mediump float;
+    uniform mat4 modelViewMatrix;
+    uniform mat4 projectionMatrix;
+    uniform float time;
+    uniform float size;
+
+    attribute vec3 position;
+    attribute vec3 velocity;
+    
+    varying vec3 vColor;
+
+    void main() {
+        vColor = vec3(1.0, 1.0, 1.0); // We will control color with uniforms
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+
+        // Simple turbulence from the original shader logic
+        mvPosition.x += sin(mvPosition.y * 0.5 + time) * 0.5;
+        mvPosition.y += cos(mvPosition.x * 0.5 + time) * 0.5;
+
+        gl_PointSize = size * (200.0 / -mvPosition.z);
+        gl_Position = projectionMatrix * mvPosition;
+    }
+`;
+
+const fragmentShader = `
+    precision mediump float;
+    uniform float hu; // Hue
+    varying vec3 vColor;
+
+    // Function to convert HSL to RGB
+    vec3 hsl2rgb(vec3 c) {
+        vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0);
+        return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
+    }
+
+    void main() {
+        vec3 color = hsl2rgb(vec3(hu, 1.0, 0.5));
+        gl_FragColor = vec4(color, 1.0);
+    }
+`;
+
+
+function init(threeScene) { // No longer needs shaderFiles
     scene = threeScene;
-
-    // Modify the loaded shaders to work with RawShaderMaterial
-    const vertexShader = `
-        precision mediump float;
-        uniform mat4 modelViewMatrix;
-        uniform mat4 projectionMatrix;
-        uniform float time;
-        uniform float size;
-        attribute vec3 position;
-        attribute vec3 velocity;
-        
-        void main() {
-            vec2 pos = position.xy;
-            pos.x = pos.x + sin(pos.y * 10.0 + time) * 0.01;
-            pos.y = pos.y + cos(pos.x * 10.0 + time) * 0.01;
-
-            vec4 mvPosition = modelViewMatrix * vec4(pos, position.z);
-            gl_PointSize = size * (1.0 / -mvPosition.z);
-            gl_Position = projectionMatrix * mvPosition;
-        }
-    `;
-
-    const fragmentShader = shaderFiles[1]; // Use the original fragment shader
-
-    // The Firework class now gets the modern shaders passed to it
-    Firework.vertexShader = vertexShader;
-    Firework.fragmentShader = fragmentShader;
-
     createFirework(); 
 }
 
@@ -41,7 +57,7 @@ function createFirework() {
 }
 
 function update() {
-    if (Math.random() < 0.01) {
+    if (Math.random() < 0.02) {
         createFirework();
     }
 
@@ -55,9 +71,6 @@ function update() {
 }
 
 class Firework {
-    static vertexShader = '';
-    static fragmentShader = '';
-
     constructor() {
         this.done = false;
         const vertices = [];
@@ -71,11 +84,11 @@ class Firework {
         
         const geometry = new THREE.BufferGeometry();
         const material = new THREE.RawShaderMaterial({
-            vertexShader: Firework.vertexShader,
-            fragmentShader: Firework.fragmentShader,
+            vertexShader: vertexShader,
+            fragmentShader: fragmentShader,
             uniforms: {
                 time: { type: 'f', value: 0.0 },
-                size: { type: 'f', value: 5.0 },
+                size: { type: 'f', value: 5.0 + Math.random() * 5.0 },
                 hu: { type: 'f', value: hu },
             },
             blending: THREE.AdditiveBlending,
@@ -101,7 +114,6 @@ class Firework {
             velocities.push(vel.x, vel.y, vel.z);
         }
 
-        // Use modern .setAttribute()
         geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
         geometry.setAttribute('velocity', new THREE.Float32BufferAttribute(velocities, 3));
     }
