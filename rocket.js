@@ -7,8 +7,6 @@ let isLaunching = false;
 let launchVelocity = 0;
 const launchAcceleration = 0.05;
 
-// Removed all custom shader code for this test
-
 function createPlaceholders(scene) {
     const hillGeo = new THREE.CircleGeometry(200, 64);
     const hillMat = new THREE.MeshBasicMaterial({ color: 0x004d00 });
@@ -21,20 +19,22 @@ function createPlaceholders(scene) {
     rocketPlaceholder.position.set(0, 10, 0);
     scene.add(rocketPlaceholder);
 
-    // --- Load the GLB Model (Simplified) ---
     const loader = new GLTFLoader();
 
     loader.load('swiftrocket.glb', (gltf) => {
         const model = gltf.scene;
         
-        // We are NOT traversing or replacing materials.
-        // We will use the materials embedded in the GLB file.
+        // This traverse forces the renderer to update the materials, making the model visible immediately.
+        model.traverse((child) => {
+            if (child.isMesh && child.material) {
+                child.material.needsUpdate = true;
+            }
+        });
         
         model.scale.set(5, 5, 5);
         model.position.y = -7.5;
         rocketPlaceholder.add(model);
     });
-
 
     createAfterburner();
     createSmoke();
