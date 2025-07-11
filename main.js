@@ -8,7 +8,6 @@ import * as uiController from './uiController.js';
 let scene, camera, renderer, clock;
 const cameraLookAtTarget = new THREE.Vector3(0, 10, 0);
 
-// Initialize the core components
 function init() {
     const components = sceneManager.init();
     scene = components.scene;
@@ -27,19 +26,17 @@ function init() {
     animate();
 }
 
-// The main animation loop
 function animate() {
     requestAnimationFrame(animate);
 
+    const delta = clock.getDelta(); // Get time since last frame
     const rocketState = rocket.getRocketState();
 
     sky.updateSky();
     fireworks.update();
-    rocket.update(); 
+    rocket.update(delta); // Pass delta to the rocket's update function
 
-    // If the rocket is launching, make the camera follow it
     if (rocketState.isLaunching && rocketState.model) {
-        // Smoothly interpolate the camera's look-at target towards the rocket
         cameraLookAtTarget.lerp(rocketState.model.position, 0.05);
         camera.lookAt(cameraLookAtTarget);
     }
