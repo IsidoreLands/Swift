@@ -7,6 +7,40 @@ let isLaunching = false;
 let launchVelocity = 0;
 const launchAcceleration = 0.05;
 
+// --- Toon Shaders for the Rocket ---
+const toonVertexShader = `
+    varying vec3 vNormal;
+    varying vec3 vColor;
+
+    void main() {
+        vNormal = normalize(normalMatrix * normal);
+        vColor = color; 
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+`;
+
+const toonFragmentShader = `
+    uniform vec3 uLightDirection;
+    varying vec3 vNormal;
+    varying vec3 vColor;
+    
+    void main() {
+        float intensity = max(0.0, dot(vNormal, uLightDirection));
+        vec3 finalColor;
+
+        if (intensity > 0.85) {
+            finalColor = vColor * 1.4;
+        } else if (intensity > 0.5) {
+            finalColor = vColor;
+        } else {
+            finalColor = vColor * 0.6;
+        }
+        
+        gl_FragColor = vec4(finalColor, 1.0);
+    }
+`;
+
+
 function createPlaceholders(scene) {
     const hillGeo = new THREE.CircleGeometry(200, 64);
     const hillMat = new THREE.MeshBasicMaterial({ color: 0x004d00 });
@@ -19,53 +53,138 @@ function createPlaceholders(scene) {
     rocketPlaceholder.position.set(0, 10, 0);
     scene.add(rocketPlaceholder);
 
-    // --- DIAGNOSTIC CODE TO MEASURE THE MODEL ---
     const loader = new GLTFLoader();
+    const lightDirection = new THREE.Vector3(0.5, 0.5, 1).normalize();
+
+    const customToonMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            uLightDirection: { value: lightDirection }
+        },
+        vertexShader: toonVertexShader,
+        fragmentShader: toonFragmentShader,
+        vertexColors: true
+    });
 
     loader.load('swiftrocket.glb', (gltf) => {
         const model = gltf.scene;
-
-        // Calculate the model's bounding box
-        const box = new THREE.Box3().setFromObject(model);
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-
-        // Print the results to the console
-        console.log("--- ROCKET MODEL ANALYSIS ---");
-        console.log("Model Size (WxHxD):", size.x, size.y, size.z);
-        console.log("Model Center (X,Y,Z):", center.x, center.y, center.z);
-        console.log("--- END ANALYSIS ---");
         
-        // We will not add the model to the scene in this test.
-        // rocketPlaceholder.add(model);
+        model.traverse((child) => {
+            if (child.isMesh) {
+                child.material = customToonMaterial;
+            }
+        });
+
+        // Calculated scale to make the 197.6-unit-tall model 25 units tall
+        const scale = 25 / 197.607;
+        model.scale.set(scale, scale, scale);
+        
+        // Position the model so its base is at the group's origin
+        model.position.y = 12.5; 
+        
+        rocketPlaceholder.add(model);
     });
 
-    // We still create these so the app doesn't crash, but they won't be used.
     createAfterburner();
     createSmoke();
 }
 
-// --- The following functions remain unchanged for now ---
-
 function createAfterburner() {
-    // This function is temporarily inert
+    const particleCount = 2000;
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+        // Position particles correctly at the new model's base
+        positions[i * 3] = (Math.random() - 0.5) * 0.2;
+        positions[i * 3 + 1] = (Math.random() * -1);
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 0.2;
+        velocities[i * 3] = (Math.random() - 0.5) * 0.1;
+        velocities[i * 3 + 1] = -1 - Math.random();
+        velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.1;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+    const material = new THREE.PointsMaterial({
+        size: 0.5, // Scaled down particle size
+        map: new THREE.TextureLoader().load('flame-png-transparent-4.png'),
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        transparent: true,
+        color: 0xffa500
+    });
+    afterburnerSystem = new THREE.Points(geometry, material);
+    afterburnerSystem.visible = false;
+    rocketPlaceholder.add(afterburnerSystem);
 }
 
 function createSmoke() {
-    // This function is temporarily inert
+    const particleCount = 500;
+    const positions = new Float32Array(particleCount * 3);
+    const velocities = new Float32Array(particleCount * 3);
+    for (let i = 0; i < particleCount; i++) {
+        // Position particles correctly at the new model's base
+        positions[i * 3] = (Math.random() - 0.5) * 1;
+        positions[i * 3 + 1] = 0;
+        positions[i * 3 + 2] = (Math.random() - 0.5) * 1;
+        velocities[i * 3] = (Math.random() - 0.5) * 0.2;
+        velocities[i * 3 + 1] = Math.random() * 0.2;
+        velocities[i * 3 + 2] = (Math.random() - 0.5) * 0.2;
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
+    const material = new THREE.PointsMaterial({
+        size: 2, // Scaled down particle size
+        map: new THREE.TextureLoader().load('clouds.png'),
+        blending: THREE.NormalBlending,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.3
+    });
+    smokeSystem = new THREE.Points(geometry, material);
+    smokeSystem.visible = false;
+    rocketPlaceholder.add(smokeSystem);
 }
 
 function launch() {
     if (!isLaunching) {
-        console.log("Launch button pressed, but rocket is hidden for diagnostics.");
-        // isLaunching = true; 
-        // afterburnerSystem.visible = true;
-        // smokeSystem.visible = true;
+        isLaunching = true;
+        afterburnerSystem.visible = true;
+        smokeSystem.visible = true;
     }
 }
 
 function update() {
-    // No updates needed during this test
+    if (isLaunching) {
+        launchVelocity += launchAcceleration;
+        rocketPlaceholder.position.y += launchVelocity;
+
+        const afterburnerPos = afterburnerSystem.geometry.attributes.position.array;
+        const afterburnerVel = afterburnerSystem.geometry.attributes.velocity.array;
+        for (let i = 0; i < afterburnerPos.length; i += 3) {
+            afterburnerPos[i + 1] += afterburnerVel[i + 1] * 0.2;
+            if (afterburnerPos[i + 1] < -5) {
+                afterburnerPos[i] = (Math.random() - 0.5) * 0.2;
+                afterburnerPos[i + 1] = 0;
+                afterburnerPos[i + 2] = (Math.random() - 0.5) * 0.2;
+            }
+        }
+        afterburnerSystem.geometry.attributes.position.needsUpdate = true;
+
+        const smokePos = smokeSystem.geometry.attributes.position.array;
+        const smokeVel = smokeSystem.geometry.attributes.velocity.array;
+        for (let i = 0; i < smokePos.length; i += 3) {
+            smokePos[i] += smokeVel[i] * 0.1;
+            smokePos[i + 1] += smokeVel[i + 1] * 0.1;
+            smokePos[i + 2] += smokeVel[i + 2] * 0.1;
+            if (smokePos[i + 1] > 3 || Math.abs(smokePos[i]) > 5) {
+                smokePos[i] = (Math.random() - 0.5) * 1;
+                smokePos[i + 1] = 0;
+                smokePos[i + 2] = (Math.random() - 0.5) * 1;
+            }
+        }
+        smokeSystem.geometry.attributes.position.needsUpdate = true;
+    }
 }
 
 function getRocketState() {
