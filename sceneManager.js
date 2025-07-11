@@ -5,8 +5,11 @@ let scene, camera, renderer;
 // Initializes and returns the core Three.js components.
 function init() {
     scene = new THREE.Scene();
+    // Add fog to the scene. Color should match the background.
+    // The numbers control how near and far the fog effect is.
+    scene.fog = new THREE.Fog(0x000000, 50, 200);
     
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000); // Adjusted far plane for fog
     camera.position.set(0, 10, 50);
     camera.lookAt(0, 10, 0);
 
@@ -14,14 +17,13 @@ function init() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.insertBefore(renderer.domElement, document.body.firstChild);
     
-    // --- New Lighting Setup ---
     // A dim ambient light to fill in shadows slightly.
     const ambient = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambient);
 
     // A strong directional light to create highlights and shadows.
     const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
-    directionalLight.position.set(10, 20, 10); // Coming from the top-right
+    directionalLight.position.set(10, 20, 10);
     scene.add(directionalLight);
 
     return { scene, camera, renderer };
