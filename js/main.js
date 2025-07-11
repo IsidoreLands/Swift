@@ -1,33 +1,33 @@
 import * as THREE from 'three';
 import * as sceneManager from './sceneManager.js';
+import * as fireworks from './fireworks.js';
 
 $(document).ready(function() {
   main();
 });
 
 function main() {
-  var canvas, renderer, scene, camera, stats, gui;
-  var fireworks = [];
+  var renderer, scene, camera, stats, gui;
   var self = this;
 
   var MyGUI = function() {
     this.launch = function() {
-      self.createFirework();
+      fireworks.createFirework(); // Call the module's function
     }
     this.launchMultiple = function() {
       for (var i = 0; i < 5; i++) {
         setTimeout(function() {
-          self.createFirework();
+          fireworks.createFirework(); // Call the module's function
         }, (i + 1) * 200);
       }
     }
     this.clear = function() {
-      fireworks = [];
+      // This functionality will need to be added to the fireworks module if desired
+      console.log("Clear function needs implementation in fireworks.js");
     }
   };
 
   self.init = function() {
-    // Use the new sceneManager to set up the scene
     const components = sceneManager.init();
     camera = components.camera;
     scene = components.scene;
@@ -52,7 +52,6 @@ function main() {
     var promises = [];
     for (var i = 0; i < files.length; i++) {
       var p = new Promise(function(resolve, reject) {
-        var fileIndex = i;
         loader.load(files[i], function(data) {
           resolve(data);
         });
@@ -61,14 +60,10 @@ function main() {
     }
 
     Promise.all(promises).then(function(data) {
-      self.files = data;
-      self.createFirework();
+      // Pass the scene and shader files to the fireworks module
+      fireworks.init(scene, data); 
       self.render();
     });
-  }
-
-  self.createFirework = function() {
-    fireworks.push(new Firework());
   }
 
   self.render = function() {
@@ -76,109 +71,19 @@ function main() {
     renderer.render(scene, camera);
     stats.end();
 
-    for (var i = fireworks.length - 1; i >= 0; i--) {
-      if (fireworks[i].done) {
-        fireworks.splice(i, 1);
-        continue;
-      }
-      fireworks[i].update();
-    }
+    // The main update call is now handled by the module
+    fireworks.update(); 
 
     requestAnimationFrame(self.render);
   }
 
-  // The onResize handler now calls the function from the sceneManager
   self.onResize = function() {
     sceneManager.onResize();
   }
 
   $(window).on('resize', self.onResize);
 
-  function Firework() {
-    var firework = this;
-    var a = 8;
-    var b = 15;
-    var c = 15;
-    var m = 2;
-    var n1 = 12;
-    var n2 = 12;
-    var n3 = 12;
-    var TWO_PI = Math.PI * 2;
-    var vertices = [];
-    var velocities = [];
-    var explosion = [];
-
-    var hu = Math.random();
-
-    self.init = function() {
-      var x = Math.random() * 40 - 20;
-      var y = Math.random() * 20 - 5;
-      var z = Math.random() * 40 - 20;
-      var pos = new THREE.Vector3(x, y, z);
-      var vel = new THREE.Vector3(0, Math.random() * 2 + 10, 0);
-
-      firework.mesh = self.setupGL(pos, vel);
-    }
-
-    self.setupGL = function(pos, vel) {
-      var g = new THREE.BufferGeometry();
-      var m = new THREE.ShaderMaterial({
-        vertexShader: self.files[0],
-        fragmentShader: self.files[1],
-        uniforms: {
-          time: {
-            type: 'f',
-            value: 0.0
-          },
-          size: {
-            type: 'f',
-            value: 5.0
-          },
-          hu: {
-            type: 'f',
-            value: hu
-          },
-        },
-        blending: THREE.AdditiveBlending,
-        transparent: true,
-        depthWrite: false,
-      });
-
-      var p = new THREE.Points(g, m);
-      p.position.copy(pos);
-      scene.add(p);
-
-      var point = new THREE.Vector3();
-      var vel = new THREE.Vector3();
-      var r, ang, ang2;
-      for (var i = 0; i < 5000; i++) {
-        r = Math.random() * 3.0;
-        ang = Math.random() * TWO_PI;
-        ang2 = Math.random() * TWO_PI;
-        point.x = r * Math.sin(ang) * Math.cos(ang2);
-        point.y = r * Math.sin(ang) * Math.sin(ang2);
-        point.z = r * Math.cos(ang);
-        vertices.push(point.x, point.y, point.z);
-        vel.copy(point).multiplyScalar(0.02);
-        velocities.push(vel.x, vel.y, vel.z);
-      }
-
-      g.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-      g.setAttribute('velocity', new THREE.Float32BufferAttribute(velocities, 3));
-      return p;
-    }
-
-    self.update = function() {
-      firework.mesh.material.uniforms.time.value += 0.02;
-
-      if (firework.mesh.material.uniforms.time.value > 2.0) {
-        firework.done = true;
-        scene.remove(firework.mesh);
-      }
-    }
-
-    self.init();
-  }
-
+  // The Firework class is now entirely within fireworks.js
+  
   self.init();
 }
