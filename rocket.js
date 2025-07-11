@@ -9,7 +9,8 @@ const launchAcceleration = 0.05;
 
 function createPlaceholders(scene) {
     const hillGeo = new THREE.CircleGeometry(200, 64);
-    const hillMat = new THREE.MeshBasicMaterial({ color: 0x004d00 });
+    // Switched to a light-receptive material for the hill
+    const hillMat = new THREE.MeshStandardMaterial({ color: 0x004d00 }); 
     const hill = new THREE.Mesh(hillGeo, hillMat);
     hill.rotation.x = -Math.PI / 2;
     hill.position.y = -5;
@@ -41,7 +42,6 @@ function createPlaceholders(scene) {
     createSmoke();
 }
 
-// --- Rewritten based on afterburner.html ---
 function createAfterburner() {
     const particleCount = 5000;
     const trailLength = 8.0;
@@ -53,8 +53,8 @@ function createAfterburner() {
     for (let i = 0; i < particleCount; i++) {
         const i3 = i * 3;
         
-        positions[i3] = (Math.random() - 0.5) * 0.5; // Emerge from small radius
-        positions[i3 + 1] = (Math.random() * -trailLength); // Start along the trail
+        positions[i3] = (Math.random() - 0.5) * 0.5;
+        positions[i3 + 1] = (Math.random() * -trailLength);
         positions[i3 + 2] = (Math.random() - 0.5) * 0.5;
 
         const color = flameColors[Math.floor(Math.random() * flameColors.length)];
@@ -62,9 +62,9 @@ function createAfterburner() {
         colors[i3 + 1] = color.g;
         colors[i3 + 2] = color.b;
 
-        velocities[i3] = (Math.random() - 0.5) * 0.2; // X turbulence
-        velocities[i3 + 1] = -2.0 - Math.random(); // Y main velocity
-        velocities[i3 + 2] = (Math.random() - 0.5) * 0.2; // Z turbulence
+        velocities[i3] = (Math.random() - 0.5) * 0.2;
+        velocities[i3 + 1] = -2.0 - Math.random();
+        velocities[i3 + 2] = (Math.random() - 0.5) * 0.2;
     }
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -84,7 +84,6 @@ function createAfterburner() {
     rocketPlaceholder.add(afterburnerSystem);
 }
 
-// --- Rewritten based on afterburner.html ---
 function createSmoke() {
     const particleCount = 1000;
     const trailLength = 5.0;
@@ -93,7 +92,7 @@ function createSmoke() {
 
     for (let i = 0; i < particleCount; i++) {
         const i3 = i * 3;
-        positions[i3] = (Math.random() - 0.5) * 2.0; // Wider radius
+        positions[i3] = (Math.random() - 0.5) * 2.0;
         positions[i3 + 1] = (Math.random() * -trailLength);
         positions[i3 + 2] = (Math.random() - 0.5) * 2.0;
 
@@ -125,12 +124,11 @@ function launch() {
     }
 }
 
-function update(delta) { // Now accepts delta time
+function update(delta) { 
     if (isLaunching) {
         launchVelocity += launchAcceleration * delta;
         rocketPlaceholder.position.y += launchVelocity;
 
-        // Animate Afterburner
         const afterburnerPos = afterburnerSystem.geometry.attributes.position.array;
         const afterburnerVel = afterburnerSystem.geometry.attributes.velocity.array;
         for (let i = 0; i < afterburnerPos.length; i += 3) {
@@ -146,7 +144,6 @@ function update(delta) { // Now accepts delta time
         }
         afterburnerSystem.geometry.attributes.position.needsUpdate = true;
 
-        // Animate Smoke
         const smokePos = smokeSystem.geometry.attributes.position.array;
         const smokeVel = smokeSystem.geometry.attributes.velocity.array;
         for (let i = 0; i < smokePos.length; i += 3) {
