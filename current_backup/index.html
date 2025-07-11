@@ -1,48 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html class="no-js" lang="">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Liberty Launch | OODA WIKI</title>
+  <meta charset="utf-8">
+  <title></title>
+  <meta name="description" content="">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
-    <link rel="stylesheet" href="style.css">
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Playfair+Display:ital@1&display=swap" rel="stylesheet">
-    
-    <script type="importmap">
-        { 
-            "imports": { 
-                "three": "https://cdn.jsdelivr.net/npm/three@0.164.1/build/three.module.js",
-                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.164.1/examples/jsm/"
-            } 
-        }
-    </script>
+  <meta property="og:title" content="Fireworks">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://heyitsguay.github.io/fireworks">
+  <meta property="og:image" content="ogimage.png">
+
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="apple-touch-icon" href="icon.png">
+  <!-- Place favicon.ico in the root directory -->
+
+  <link rel="stylesheet" href="css/normalize.css">
+  <link rel="stylesheet" href="css/main.css">
+
+  <meta name="theme-color" content="#fafafa">
 </head>
+
 <body>
+  <!--[if lte IE 9]>
+  <p class="browserupgrade">You have to hold on to
+    <strong>apples</strong> and <strong>bananas</strong>.
+  <![endif]-->
 
-    <canvas style='display:none' id='image-canvas'></canvas>
+  <script
+    src="https://code.jquery.com/jquery-3.1.1.min.js"
+    integrity="sha256-hVVnYaiADRTO2PzUGmuLJr8BLUSjGIZsDYGmIJLv2b8="
+    crossorigin="anonymous"></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/three.js/110/three.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/stats.js/r16/Stats.min.js'></script>
+  <script src='https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.6/dat.gui.min.js'></script>
+  <script src="js/vendor/modernizr-3.11.2.min.js"></script>
+  <script src="js/main.js"></script>
 
-    <div id="ui-container">
-        <div id="header">
-            <img id="logo" src="OODA Swift.png" alt="OODA Swift Logo">
-            <div id="black-strip"></div>
-            <button id="audio-controls" aria-label="Toggle Audio">
-                <svg id="icon-unmuted" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
-            </button>
-        </div>
-
-        <div id="launch-control">
-            <h3>Liberty Launch Control</h3>
-            <div class="buttons">
-                <button id="green-button" class="control-button">LAUNCH</button>
-                <button id="red-button" class="control-button">HOLD</button>
-            </div>
-        </div>
-    </div>
-
-    <script type="module" src="main.js"></script>
+  <canvas class="mainCanvas" width="1px" height="1px" id="canvas"></canvas>
 
 </body>
+
 </html>
