@@ -7,30 +7,33 @@ let isLaunching = false;
 let launchVelocity = 0;
 const launchAcceleration = 0.05;
 
-// --- Toon Shaders for the Rocket ---
+// --- Toon Shader (Updated to use vertex colors) ---
 const toonVertexShader = `
     varying vec3 vNormal;
+    varying vec3 vColor;
+
     void main() {
         vNormal = normalize(normalMatrix * normal);
+        vColor = color; // Pass vertex color to fragment shader
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
     }
 `;
 
 const toonFragmentShader = `
-    uniform vec3 uColor;
     uniform vec3 uLightDirection;
     varying vec3 vNormal;
+    varying vec3 vColor;
     
     void main() {
         float intensity = max(0.0, dot(vNormal, uLightDirection));
         vec3 finalColor;
 
         if (intensity > 0.85) {
-            finalColor = uColor * 1.4; // Highlight
+            finalColor = vColor * 1.4; // Highlight
         } else if (intensity > 0.5) {
-            finalColor = uColor; // Base color
+            finalColor = vColor; // Base color
         } else {
-            finalColor = uColor * 0.6; // Shadow
+            finalColor = vColor * 0.6; // Shadow
         }
         
         gl_FragColor = vec4(finalColor, 1.0);
@@ -50,28 +53,27 @@ function createPlaceholders(scene) {
     rocketPlaceholder.position.set(0, 10, 0);
     scene.add(rocketPlaceholder);
 
-    // --- Load the GLB Model and apply custom materials ---
+    // --- Load the GLB Model ---
     const loader = new GLTFLoader();
     const lightDirection = new THREE.Vector3(0.5, 0.5, 1).normalize();
+
+    // Create one material that will be shared by all parts of the rocket
+    const customToonMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+            uLightDirection: { value: lightDirection }
+        },
+        vertexShader: toonVertexShader,
+        fragmentShader: toonFragmentShader,
+        vertexColors: true // Tell the material to use the geometry's vertex colors
+    });
 
     loader.load('swiftrocket.glb', (gltf) => {
         const model = gltf.scene;
         
-        // Traverse the loaded model to apply materials individually
         model.traverse((child) => {
-            if (child.isMesh && child.material) {
-                // Read the original color from the model's material
-                const originalColor = child.material.color;
-
-                // Create a new Toon Shader material with the original color
-                child.material = new THREE.ShaderMaterial({
-                    uniforms: {
-                        uColor: { value: originalColor },
-                        uLightDirection: { value: lightDirection }
-                    },
-                    vertexShader: toonVertexShader,
-                    fragmentShader: toonFragmentShader,
-                });
+            if (child.isMesh) {
+                // Apply the single, shared material to all meshes
+                child.material = customToonMaterial;
             }
         });
 
@@ -79,7 +81,6 @@ function createPlaceholders(scene) {
         model.position.y = -7.5;
         rocketPlaceholder.add(model);
     });
-
 
     createAfterburner();
     createSmoke();
