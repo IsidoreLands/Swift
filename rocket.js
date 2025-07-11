@@ -8,9 +8,33 @@ let launchVelocity = 0;
 const launchAcceleration = 0.05;
 
 function createPlaceholders(scene) {
+    // --- Hill with PBR Textures ---
+    // Texture Credit: FreeStylized.com
+    const textureLoader = new THREE.TextureLoader();
+
+    const colorMap = textureLoader.load('grass_01_color_2k.png');
+    const aoMap = textureLoader.load('grass_01_ambient_occlusion_2k.png');
+    const normalMap = textureLoader.load('grass_01_normal_gl_2k.png');
+    const roughnessMap = textureLoader.load('grass_01_roughness_2k.png');
+
+    // Configure textures for seamless tiling
+    for (let texture of [colorMap, aoMap, normalMap, roughnessMap]) {
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(16, 16);
+    }
+
     const hillGeo = new THREE.CircleGeometry(200, 64);
-    // Switched to a light-receptive material for the hill
-    const hillMat = new THREE.MeshStandardMaterial({ color: 0x004d00 }); 
+    // Add a second set of UVs for the AO map
+    hillGeo.setAttribute('uv2', new THREE.BufferAttribute(hillGeo.attributes.uv.array, 2));
+
+    const hillMat = new THREE.MeshStandardMaterial({
+        map: colorMap,
+        aoMap: aoMap,
+        normalMap: normalMap,
+        roughnessMap: roughnessMap
+    });
+    
     const hill = new THREE.Mesh(hillGeo, hillMat);
     hill.rotation.x = -Math.PI / 2;
     hill.position.y = -5;
