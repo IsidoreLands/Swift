@@ -7,39 +7,22 @@ let isLaunching = false;
 let launchVelocity = 0;
 const launchAcceleration = 0.05;
 
-// --- Toon Shaders for the Rocket ---
-const toonVertexShader = `
-    varying vec3 vNormal;
-    varying vec3 vColor;
+// This is the GLSL code we will inject into the existing materials
+const toonShaderLogic = `
+    vec3 uLightDirection = vec3(0.5, 0.5, 1.0);
+    float intensity = max(0.0, dot(vNormal, uLightDirection));
+    vec3 toonColor;
 
-    void main() {
-        vNormal = normalize(normalMatrix * normal);
-        vColor = color; 
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    if (intensity > 0.85) {
+        toonColor = diffuse * 1.4; // Highlight
+    } else if (intensity > 0.5) {
+        toonColor = diffuse; // Base color
+    } else {
+        toonColor = diffuse * 0.6; // Shadow
     }
-`;
-
-const toonFragmentShader = `
-    uniform vec3 uLightDirection;
-    varying vec3 vNormal;
-    varying vec3 vColor;
     
-    void main() {
-        float intensity = max(0.0, dot(vNormal, uLightDirection));
-        vec3 finalColor;
-
-        if (intensity > 0.85) {
-            finalColor = vColor * 1.4;
-        } else if (intensity > 0.5) {
-            finalColor = vColor;
-        } else {
-            finalColor = vColor * 0.6;
-        }
-        
-        gl_FragColor = vec4(finalColor, 1.0);
-    }
+    gl_FragColor = vec4(toonColor, 1.0);
 `;
-
 
 function createPlaceholders(scene) {
     const hillGeo = new THREE.CircleGeometry(200, 64);
@@ -50,34 +33,39 @@ function createPlaceholders(scene) {
     scene.add(hill);
 
     rocketPlaceholder = new THREE.Group();
-    rocketPlaceholder.position.set(0, 10, 0);
+    // Corrected position to place the rocket on the hill
+    rocketPlaceholder.position.set(0, -5, 0);
     scene.add(rocketPlaceholder);
 
     const loader = new GLTFLoader();
-    const lightDirection = new THREE.Vector3(0.5, 0.5, 1).normalize();
-
-    const customToonMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-            uLightDirection: { value: lightDirection }
-        },
-        vertexShader: toonVertexShader,
-        fragmentShader: toonFragmentShader,
-        vertexColors: true
-    });
 
     loader.load('swiftrocket.glb', (gltf) => {
         const model = gltf.scene;
         
         model.traverse((child) => {
-            if (child.isMesh) {
-                child.material = customToonMaterial;
+            if (child.isMesh && child.material) {
+                // Use onBeforeCompile to modify the existing material's shader
+                child.material.onBeforeCompile = (shader) => {
+                    // Add our custom uniform and varying
+                    shader.uniforms.uLightDirection = { value: new THREE.Vector3(0.5, 0.5, 1.0).normalize() };
+                    shader.vertexShader = 'varying vec3 vNormal;\n' + shader.vertexShader;
+                    shader.vertexShader = shader.vertexShader.replace(
+                        '#include <begin_vertex>',
+                        '#include <begin_vertex>\nvNormal = normalize(normalMatrix * normal);'
+                    );
+                    
+                    // Replace the end of the fragment shader with our toon logic
+                    shader.fragmentShader = 'varying vec3 vNormal;\n' + shader.fragmentShader;
+                    shader.fragmentShader = shader.fragmentShader.replace(
+                        '#include <dithering_fragment>',
+                        '#include <dithering_fragment>\n' + toonShaderLogic
+                    );
+                };
             }
         });
-
-        // Calculated scale to make the 197.6-unit-tall model 25 units tall
+        
         const scale = 25 / 197.607;
         model.scale.set(scale, scale, scale);
-        
         // Position the model so its base is at the group's origin
         model.position.y = 12.5; 
         
@@ -93,7 +81,6 @@ function createAfterburner() {
     const positions = new Float32Array(particleCount * 3);
     const velocities = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount; i++) {
-        // Position particles correctly at the new model's base
         positions[i * 3] = (Math.random() - 0.5) * 0.2;
         positions[i * 3 + 1] = (Math.random() * -1);
         positions[i * 3 + 2] = (Math.random() - 0.5) * 0.2;
@@ -105,7 +92,7 @@ function createAfterburner() {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
     const material = new THREE.PointsMaterial({
-        size: 0.5, // Scaled down particle size
+        size: 0.5,
         map: new THREE.TextureLoader().load('flame-png-transparent-4.png'),
         blending: THREE.AdditiveBlending,
         depthWrite: false,
@@ -122,7 +109,6 @@ function createSmoke() {
     const positions = new Float32Array(particleCount * 3);
     const velocities = new Float32Array(particleCount * 3);
     for (let i = 0; i < particleCount; i++) {
-        // Position particles correctly at the new model's base
         positions[i * 3] = (Math.random() - 0.5) * 1;
         positions[i * 3 + 1] = 0;
         positions[i * 3 + 2] = (Math.random() - 0.5) * 1;
@@ -134,7 +120,7 @@ function createSmoke() {
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('velocity', new THREE.BufferAttribute(velocities, 3));
     const material = new THREE.PointsMaterial({
-        size: 2, // Scaled down particle size
+        size: 2,
         map: new THREE.TextureLoader().load('clouds.png'),
         blending: THREE.NormalBlending,
         depthWrite: false,
