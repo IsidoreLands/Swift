@@ -10,18 +10,19 @@ function init() {
     camera.position.set(0, 10, 50);
     camera.lookAt(0, 10, 0);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true }); // alpha:true makes the canvas transparent
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setClearColor(0x000000, 0); // transparent background
     document.body.insertBefore(renderer.domElement, document.body.firstChild);
-
-    // Add basic lighting to the scene
-    const ambient = new THREE.AmbientLight(0xffffff, 0.5);
+    
+    // --- New Lighting Setup ---
+    // A dim ambient light to fill in shadows slightly.
+    const ambient = new THREE.AmbientLight(0xffffff, 0.3);
     scene.add(ambient);
 
-    const pointLight = new THREE.PointLight(0xffffff, 1, 500);
-    pointLight.position.set(10, 30, 20);
-    scene.add(pointLight);
+    // A strong directional light to create highlights and shadows.
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 2.0);
+    directionalLight.position.set(10, 20, 10); // Coming from the top-right
+    scene.add(directionalLight);
 
     return { scene, camera, renderer };
 }
