@@ -5,11 +5,8 @@ let scene, camera, renderer;
 // Initializes and returns the core Three.js components.
 function init() {
     scene = new THREE.Scene();
-    // Add fog to the scene. Color should match the background.
-    // The numbers control how near and far the fog effect is.
-    scene.fog = new THREE.Fog(0x000000, 50, 200);
     
-    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000); // Adjusted far plane for fog
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 10000);
     camera.position.set(0, 10, 50);
     camera.lookAt(0, 10, 0);
 
