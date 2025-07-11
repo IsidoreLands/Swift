@@ -16,7 +16,8 @@ function createPlaceholders(scene) {
     scene.add(hill);
 
     rocketPlaceholder = new THREE.Group();
-    rocketPlaceholder.position.set(0, -5, 0);
+    // Corrected Y-position to move the rocket up on the hill
+    rocketPlaceholder.position.set(0, 0, 0); 
     scene.add(rocketPlaceholder);
 
     const loader = new GLTFLoader();
@@ -24,7 +25,6 @@ function createPlaceholders(scene) {
     loader.load('swiftrocket.glb', (gltf) => {
         const model = gltf.scene;
         
-        // Use the model's own, built-in materials and force an update.
         model.traverse((child) => {
             if (child.isMesh && child.material) {
                 child.material.needsUpdate = true;
@@ -33,6 +33,7 @@ function createPlaceholders(scene) {
         
         const scale = 25 / 197.607;
         model.scale.set(scale, scale, scale);
+        // This positions the model's base at the group's origin
         model.position.y = 12.5; 
         
         rocketPlaceholder.add(model);
