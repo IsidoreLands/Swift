@@ -7,23 +7,6 @@ let isLaunching = false;
 let launchVelocity = 0;
 const launchAcceleration = 0.05;
 
-// This is the GLSL code we will inject into the existing materials
-const toonShaderLogic = `
-    // This logic replaces the standard lighting model with our toon shading
-    float intensity = max(0.0, dot(vNormal, uLightDirection));
-    vec3 toonColor;
-
-    if (intensity > 0.85) {
-        toonColor = diffuse * 1.4; // Highlight
-    } else if (intensity > 0.5) {
-        toonColor = diffuse; // Base color
-    } else {
-        toonColor = diffuse * 0.6; // Shadow
-    }
-    
-    gl_FragColor = vec4(toonColor, 1.0);
-`;
-
 function createPlaceholders(scene) {
     const hillGeo = new THREE.CircleGeometry(200, 64);
     const hillMat = new THREE.MeshBasicMaterial({ color: 0x004d00 });
@@ -41,21 +24,9 @@ function createPlaceholders(scene) {
     loader.load('swiftrocket.glb', (gltf) => {
         const model = gltf.scene;
         
+        // Use the model's own, built-in materials. No custom shaders.
         model.traverse((child) => {
             if (child.isMesh && child.material) {
-                child.material.onBeforeCompile = (shader) => {
-                    // Add our custom light direction uniform to the shader
-                    shader.uniforms.uLightDirection = { value: new THREE.Vector3(0.5, 0.5, 1.0).normalize() };
-                    
-                    // Declare the uniform and varying in the fragment shader
-                    shader.fragmentShader = 'uniform vec3 uLightDirection;\n' + shader.fragmentShader;
-                    
-                    // Replace the end of the fragment shader with our logic
-                    shader.fragmentShader = shader.fragmentShader.replace(
-                        '#include <dithering_fragment>',
-                        '#include <dithering_fragment>\n' + toonShaderLogic
-                    );
-                };
                 child.material.needsUpdate = true;
             }
         });
