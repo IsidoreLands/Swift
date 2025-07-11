@@ -9,7 +9,7 @@ const launchAcceleration = 0.05;
 
 // This is the GLSL code we will inject into the existing materials
 const toonShaderLogic = `
-    vec3 uLightDirection = vec3(0.5, 0.5, 1.0);
+    // This logic replaces the standard lighting model with our toon shading
     float intensity = max(0.0, dot(vNormal, uLightDirection));
     vec3 toonColor;
 
@@ -33,7 +33,6 @@ function createPlaceholders(scene) {
     scene.add(hill);
 
     rocketPlaceholder = new THREE.Group();
-    // Corrected position to place the rocket on the hill
     rocketPlaceholder.position.set(0, -5, 0);
     scene.add(rocketPlaceholder);
 
@@ -44,29 +43,24 @@ function createPlaceholders(scene) {
         
         model.traverse((child) => {
             if (child.isMesh && child.material) {
-                // Use onBeforeCompile to modify the existing material's shader
                 child.material.onBeforeCompile = (shader) => {
-                    // Add our custom uniform and varying
+                    // Add our custom light direction uniform
                     shader.uniforms.uLightDirection = { value: new THREE.Vector3(0.5, 0.5, 1.0).normalize() };
-                    shader.vertexShader = 'varying vec3 vNormal;\n' + shader.vertexShader;
-                    shader.vertexShader = shader.vertexShader.replace(
-                        '#include <begin_vertex>',
-                        '#include <begin_vertex>\nvNormal = normalize(normalMatrix * normal);'
-                    );
                     
-                    // Replace the end of the fragment shader with our toon logic
-                    shader.fragmentShader = 'varying vec3 vNormal;\n' + shader.fragmentShader;
+                    // The vNormal varying is already available in the standard material, so we just use it.
+                    // We find the end of the fragment shader and replace it with our logic.
                     shader.fragmentShader = shader.fragmentShader.replace(
                         '#include <dithering_fragment>',
                         '#include <dithering_fragment>\n' + toonShaderLogic
                     );
                 };
+                // We also need to set this flag on the material itself
+                child.material.needsUpdate = true;
             }
         });
         
         const scale = 25 / 197.607;
         model.scale.set(scale, scale, scale);
-        // Position the model so its base is at the group's origin
         model.position.y = 12.5; 
         
         rocketPlaceholder.add(model);
