@@ -1,59 +1,17 @@
 import * as THREE from 'three';
 
-let scene;
+let scene, files;
 const fireworks = [];
 
-// --- Simplified and Corrected Shaders ---
-const vertexShader = `
-    precision mediump float;
-    uniform mat4 modelViewMatrix;
-    uniform mat4 projectionMatrix;
-    uniform float time;
-    uniform float size;
-
-    attribute vec3 position;
-    attribute vec3 velocity;
-    
-    varying vec3 vColor;
-
-    void main() {
-        vColor = vec3(1.0, 1.0, 1.0); // We will control color with uniforms
-        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-
-        // Simple turbulence from the original shader logic
-        mvPosition.x += sin(mvPosition.y * 0.5 + time) * 0.5;
-        mvPosition.y += cos(mvPosition.x * 0.5 + time) * 0.5;
-
-        gl_PointSize = size * (200.0 / -mvPosition.z);
-        gl_Position = projectionMatrix * mvPosition;
-    }
-`;
-
-const fragmentShader = `
-    precision mediump float;
-    uniform float hu; // Hue
-    varying vec3 vColor;
-
-    // Function to convert HSL to RGB
-    vec3 hsl2rgb(vec3 c) {
-        vec3 rgb = clamp(abs(mod(c.x*6.0+vec3(0.0,4.0,2.0),6.0)-3.0)-1.0, 0.0, 1.0);
-        return c.z + c.y * (rgb-0.5)*(1.0-abs(2.0*c.z-1.0));
-    }
-
-    void main() {
-        vec3 color = hsl2rgb(vec3(hu, 1.0, 0.5));
-        gl_FragColor = vec4(color, 1.0);
-    }
-`;
-
-
-function init(threeScene) { // No longer needs shaderFiles
+function init(threeScene, shaderFiles) {
     scene = threeScene;
+    files = shaderFiles; // Store the loaded shader files
     createFirework(); 
 }
 
 function createFirework() {
-    fireworks.push(new Firework());
+    // Pass the loaded shaders to the Firework class instance
+    fireworks.push(new Firework(files));
 }
 
 function update() {
@@ -71,7 +29,7 @@ function update() {
 }
 
 class Firework {
-    constructor() {
+    constructor(shaderFiles) {
         this.done = false;
         const vertices = [];
         const velocities = [];
@@ -83,9 +41,10 @@ class Firework {
         const pos = new THREE.Vector3(x, y, z);
         
         const geometry = new THREE.BufferGeometry();
+        // Use the shaders passed from main.js
         const material = new THREE.RawShaderMaterial({
-            vertexShader: vertexShader,
-            fragmentShader: fragmentShader,
+            vertexShader: shaderFiles[0],
+            fragmentShader: shaderFiles[1],
             uniforms: {
                 time: { type: 'f', value: 0.0 },
                 size: { type: 'f', value: 5.0 + Math.random() * 5.0 },
